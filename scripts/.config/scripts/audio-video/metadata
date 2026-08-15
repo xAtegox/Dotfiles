@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+MUSIC="$HOME/Music"
+
+folder=$(find "$MUSIC" -type d | fzf --prompt="Select album: ") || exit
+
+find "$folder" -type f \( \
+  -iname "*.flac" -o \
+  -iname "*.mp3" -o \
+  -iname "*.ogg" -o \
+  -iname "*.opus" -o \
+  -iname "*.m4a" -o \
+  -iname "*.wav" \
+  \) -print0 |
+  while IFS= read -r -d '' file; do
+
+    lrc="${file%.*}.lrc"
+
+    if [[ -f "$lrc" ]]; then
+      echo "✓ $(basename "$lrc") already exists"
+      continue
+    fi
+
+    artist=$(ffprobe -v error \
+      -show_entries format_tags=artist \
+      -of default=noprint_wrappers=1:nokey=1 "$file")
+
+    title=$(ffprobe -v error \
+      -show_entries format_tags=title \
+      -of default=noprint_wrappers=1:nokey=1 "$file")
+
+    album=$(ffprobe -v error \
+      -show_entries format_tags=album \
+      -of default=noprint_wrappers=1:nokey=1 "$file")
+
+    author=$(ffprobe -v error \
+      -show_entries format_tags=composer \
+      -of default=noprint_wrappers=1:nokey=1 "$file")
+
+    duration=$(ffprobe -v error \
+      -show_entries format=duration \
+      -of default=noprint_wrappers=1:nokey=1 "$file")
+
+    if [[ -z "$artist" || -z "$title" ]]; then
+      echo "✗ Missing metadata: $(basename "$file")"
+      continue
+    fi
+
+    echo "Downloading: $artist - $title"
+
+    if ! syncedlyrics "$artist - $title" >"$lrc"; then
+      echo "✗ Download failed"
+      rm -f "$lrc"
+      continue
+    fi
+
+    if [[ ! -s "$lrc" ]]; then
+      echo "✗ Empty lyrics"
+      rm -f "$lrc"
+      continue
+    fi
+
+    length=$(awk -v s="$duration" 'BEGIN{
+        m=int(s/60)
+        sec=int(s%60)
+        printf "%d:%02d", m, sec
+    }')
+
+    tmp=$(mktemp)
+
+    {
+      [[ -n "$artist" ]] && echo "[ar:$artist]"
+      [[ -n "$title" ]] && echo "[ti:$title]"
+      [[ -n "$album" ]] && echo "[al:$album]"
+      [[ -n "$author" ]] && echo "[au:$author]"
+      [[ -n "$length" ]] && echo "[length:$length]"
+      echo "[offset:0]"
+      echo
+      cat "$lrc"
+    } >"$tmp"
+
+    mv "$tmp" "$lrc"
+
+    echo "✓ Saved $(basename "$lrc")"
+
+  done
+
+echo
+echo "Done."

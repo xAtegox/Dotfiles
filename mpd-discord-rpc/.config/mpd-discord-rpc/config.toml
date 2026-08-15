@@ -1,0 +1,12 @@
+id = 830303254508240898
+hosts = ["127.0.0.1:6600"]
+
+[format]
+details = "$title"
+state = "$artist"
+large_text = "$album"
+small_text = "$artist"
+timestamp = "elapsed"
+large_image = "notes"
+small_image = "notes"
+display_type = "name"

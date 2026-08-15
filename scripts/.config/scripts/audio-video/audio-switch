@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Notification IDs for Dunst
+ID_OUT=2593
+ID_IN=2594
+
+toggle_output() {
+  # 1. Get list of all available sink names
+  mapfile -t sinks < <(pactl list short sinks | awk '{print $2}')
+
+  # 2. Get current default sink
+  current=$(pactl get-default-sink)
+
+  # 3. Logic to pick the "other" device
+  # If we have more than 1 device, find the one that isn't current
+  next_sink=${sinks[0]}
+  for sink in "${sinks[@]}"; do
+    if [[ "$sink" != "$current" ]]; then
+      next_sink="$sink"
+      break
+    fi
+  done
+
+  # 4. Apply switch and move active streams
+  pactl set-default-sink "$next_sink"
+  pactl list sink-inputs short | awk '{print $1}' | xargs -I{} pactl move-sink-input {} "$next_sink"
+
+  # 5. Get Description for Dunst
+  desc=$(pactl list sinks | grep -A 50 "Name: $next_sink" | grep "Description:" | cut -d: -f2- | xargs)
+  dunstify -u low -r "$ID_OUT" "Audio Output" "Switched to:\n$desc"
+}
+
+toggle_input() {
+  # 1. Get list of all sources, excluding monitors
+  mapfile -t sources < <(pactl list short sources | awk '{print $2}' | grep -v ".monitor")
+
+  # 2. Get current default source
+  current=$(pactl get-default-source)
+
+  # 3. Find the next source that isn't the current one
+  next_source=${sources[0]}
+  for source in "${sources[@]}"; do
+    if [[ "$source" != "$current" ]]; then
+      next_source="$source"
+      break
+    fi
+  done
+
+  # 4. Apply switch and move active recording streams (Discord, OBS, etc)
+  pactl set-default-source "$next_source"
+  pactl list source-outputs short | awk '{print $1}' | xargs -I{} pactl move-source-output {} "$next_source"
+
+  # 5. Get Description for Dunst
+  desc=$(pactl list sources | grep -A 50 "Name: $next_source" | grep "Description:" | cut -d: -f2- | xargs)
+  dunstify -u low -r "$ID_IN" "Audio Input" "Switched to:\n$desc"
+}
+
+case "$1" in
+output) toggle_output ;;
+input) toggle_input ;;
+*) echo "Usage: $0 {output|input}" ;;
+esac

@@ -1,0 +1,22 @@
+# General Settings
+interval = 1000
+send_delay = 2000
+
+[cover]
+# Focus only on the song's current folder and data
+local_search_depth = 0
+
+[cover.provider]
+# 'mpris' uses the bridge's extracted art (your MP3 cover)
+# 'catbox' uploads that file to Discord
+provider = ["mpris", "catbox"]
+
+[cover.provider.catbox]
+# This hosts your local image so Discord can see it
+use_litter = true
+litter_hours = 24
+
+[template]
+# Clean layout for your Discord status
+detail = "{{{title}}}"
+state = "{{{artist}}} - {{{album}}}"

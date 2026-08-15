@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# --- CONFIGURATION ---
+REC_FLAG="$HOME/.cache/audio_triple_flag"
+REC_COOLDOWN_FLAG="$HOME/.cache/audio_cooldown"
+COOLDOWN_SECS=5
+BASE_REC_DIR="$HOME/Videos/audio_recordings"
+mkdir -p "$BASE_REC_DIR"
+
+is_recording() {
+  [[ -f "$REC_FLAG" ]]
+}
+
+cooldown_remaining() {
+  if [[ -f "$REC_COOLDOWN_FLAG" ]]; then
+    local last_stop now elapsed
+    last_stop=$(cat "$REC_COOLDOWN_FLAG")
+    now=$(date +%s)
+    elapsed=$((now - last_stop))
+    if ((elapsed < COOLDOWN_SECS)); then
+      echo $((COOLDOWN_SECS - elapsed))
+      return 0
+    fi
+  fi
+  return 1
+}
+
+start_recording() {
+  if is_recording; then
+    exit 1
+  fi
+  local remaining
+  if remaining=$(cooldown_remaining); then
+    notify-send "Audio recording on cooldown" "Wait ${remaining}s before starting again"
+    exit 1
+  fi
+
+  day_folder="$(date +%d-%m-%Y)"
+  timestamp="$(date +%H-%M)"
+  session_path="$BASE_REC_DIR/$day_folder/$timestamp"
+  mkdir -p "$session_path"/{studio_quality,music_quality,discord_quality}
+  output="$session_path/studio_quality/studio_master_$(date +%H%M%S).flac"
+  echo "$output" >"${REC_FLAG}.output"
+  echo "$session_path" >"${REC_FLAG}.path"
+  touch "$REC_FLAG"
+  notify-send "Audio Recording:" "Started"
+
+  # --- DYNAMIC AUDIO SOURCES ---
+  MIC_SOURCE=$(pactl info | awk -F': ' '/Default Source/ {print $2}')
+  DEFAULT_SINK=$(pactl info | awk -F': ' '/Default Sink/ {print $2}')
+  SYS_SOURCE=$(pactl list short sources | grep "$DEFAULT_SINK.monitor" | awk '{print $2}')
+
+  # --- THE "NATURAL LOUD" FILTER CHAIN ---
+  FILTER="[1:a]highpass=f=100,lowpass=f=15000,anequalizer=c0 f=300 w=100 g=-6 t=1,volume=2.5[mic]; [0:a]volume=0.8[sys]; [sys][mic]amix=inputs=2:duration=first:normalize=0[mixed]; [mixed]alimiter=limit=0.95[aout]"
+
+  ffmpeg -f pulse -i "$SYS_SOURCE" -f pulse -i "$MIC_SOURCE" \
+    -filter_complex "$FILTER" -map "[aout]" -c:a flac \
+    -y "$output" &
+  echo $! >"${REC_FLAG}.pid"
+  pkill -RTMIN+12 dwmblocks
+}
+
+stop_recording() {
+  if ! is_recording; then
+    exit 1
+  fi
+  pid=$(cat "${REC_FLAG}.pid")
+  output=$(cat "${REC_FLAG}.output")
+  session_path=$(cat "${REC_FLAG}.path")
+  kill -INT "$pid"
+  wait "$pid" 2>/dev/null
+  rm -f "$REC_FLAG" "${REC_FLAG}.pid" "${REC_FLAG}.output" "${REC_FLAG}.path"
+  date +%s >"$REC_COOLDOWN_FLAG"
+
+  if [ -s "$output" ]; then
+    (
+      timestamp=$(date +%H%M%S)
+      ffmpeg -i "$output" -c:a libmp3lame -b:a 256k "$session_path/music_quality/music_$timestamp.mp3" >/dev/null 2>&1
+      ffmpeg -i "$output" -c:a libopus -b:a 96k "$session_path/discord_quality/discord_$timestamp.opus" >/dev/null 2>&1
+      notify-send "Audio Recording:" "Complete"
+    ) &
+  fi
+  pkill -RTMIN+12 dwmblocks
+}
+
+status() {
+  if is_recording; then
+    echo "●"
+  else
+    return 1
+  fi
+}
+
+case "$1" in
+start) start_recording ;;
+stop) stop_recording ;;
+toggle) is_recording && stop_recording || start_recording ;;
+status) status ;;
+esac

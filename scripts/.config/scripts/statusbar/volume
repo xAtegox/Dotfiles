@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# Get volume and mute status
+# head -1 ensures we only get the master volume if multiple channels exist
+VOLUME=$(pactl get-sink-volume @DEFAULT_SINK@ | grep -oP '\d+(?=%)' | head -1)
+MUTE=$(pactl get-sink-mute @DEFAULT_SINK@ | grep -oP '(?<=Mute: )\w+')
+
+# Choose icon based on volume level and mute status
+if [ "$MUTE" = "yes" ]; then
+  ICON="󰖁"
+elif [ "$VOLUME" -eq 0 ]; then
+  ICON="󰖁"
+elif [ "$VOLUME" -gt 100 ]; then
+  # Displays your requested max volume icon with !
+  ICON="󰕾 !"
+elif [ "$VOLUME" -lt 33 ]; then
+  ICON="󰕿"
+elif [ "$VOLUME" -lt 66 ]; then
+  ICON="󰖀"
+else
+  ICON="󰕾"
+fi
+
+echo "$ICON $VOLUME%"
+
+# Click handler for dwmblocks
+case $BLOCK_BUTTON in
+1) setsid -f pavucontrol ;;
+3) pactl set-sink-mute @DEFAULT_SINK@ toggle && pkill -RTMIN+10 dwmblocks ;;
+esac
