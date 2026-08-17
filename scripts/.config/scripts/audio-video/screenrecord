@@ -166,7 +166,7 @@ start_recording() {
       \
       -thread_queue_size 1024 \
       -f x11grab \
-      -framerate 30 \
+      -framerate 60 \
       -video_size "$geometry" \
       -draw_mouse 1 \
       -i ":0.0+0,0" \
@@ -189,7 +189,7 @@ start_recording() {
       \
       -c:v libx264 \
       -preset ultrafast \
-      -crf 23 \
+      -crf 10 \
       -pix_fmt yuv420p \
       -g 30 \
       \
