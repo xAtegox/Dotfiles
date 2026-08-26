@@ -108,36 +108,21 @@ start_recording() {
   local default_sink
   local sys_audio
 
-  mic_audio="$(
-    pactl get-default-source 2>/dev/null
-  )"
+  mic_audio="$(pactl get-default-source 2>/dev/null)"
+  default_sink="$(pactl get-default-sink 2>/dev/null)"
 
-  default_sink="$(
-    pactl get-default-sink 2>/dev/null
-  )"
-
-  sys_audio="$(
-    pactl list short sources |
-      awk -v sink="$default_sink.monitor" '$2 == sink {print $2; exit}'
-  )"
-
-  # Fallback if PulseAudio/PipeWire names differ
   if [[ -z "$mic_audio" ]]; then
-    mic_audio="$(pactl info |
-      awk -F': ' '/Default Source/ {print $2; exit}')"
+    mic_audio="$(pactl info | awk -F': ' '/Default Source/ {print $2; exit}')"
   fi
 
   if [[ -z "$default_sink" ]]; then
-    default_sink="$(pactl info |
-      awk -F': ' '/Default Sink/ {print $2; exit}')"
+    default_sink="$(pactl info | awk -F': ' '/Default Sink/ {print $2; exit}')"
   fi
 
-  if [[ -z "$sys_audio" ]]; then
-    sys_audio="$(
-      pactl list short sources |
-        awk -v sink="${default_sink}.monitor" '$2 == sink {print $2; exit}'
-    )"
-  fi
+  sys_audio="$(
+    pactl list short sources |
+      awk -v sink="${default_sink}.monitor" '$2 == sink {print $2; exit}'
+  )"
 
   # ─────────────────────────────────────────
   # Create recording state BEFORE starting
@@ -152,122 +137,69 @@ start_recording() {
     "$timestamp — x264 CPU"
 
   # ─────────────────────────────────────────
-  # FFmpeg
-  #
-  # One encoder for every situation:
-  # libx264
+  # FFmpeg — single x264 CPU encode path.
+  # Audio graph is the only thing that varies,
+  # built as an array instead of duplicating
+  # the whole command per case.
   # ─────────────────────────────────────────
 
-  if [[ -n "$sys_audio" && -n "$mic_audio" ]]; then
+  local -a ffargs=(
+    -hide_banner
+    -loglevel error
 
-    ffmpeg \
-      -hide_banner \
-      -loglevel error \
-      \
-      -thread_queue_size 1024 \
-      -f x11grab \
-      -framerate 60 \
-      -video_size "$geometry" \
-      -draw_mouse 1 \
-      -i ":0.0+0,0" \
-      \
-      -thread_queue_size 1024 \
-      -f pulse \
-      -i "$sys_audio" \
-      \
-      -thread_queue_size 1024 \
-      -f pulse \
-      -i "$mic_audio" \
-      \
-      -filter_complex \
-      "[1:a]volume=1.5[sys];\
-             [2:a]volume=1.2[mic];\
-             [sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]" \
-      \
-      -map 0:v:0 \
-      -map "[aout]" \
-      \
-      -c:v libx264 \
-      -preset ultrafast \
-      -crf 10 \
-      -pix_fmt yuv420p \
-      -g 30 \
-      \
-      -c:a aac \
-      -b:a 192k \
-      \
-      -fps_mode cfr \
-      \
-      -movflags +faststart \
-      \
-      -y "$output" \
-      >"${REC_FLAG}.log" 2>&1 &
+    -thread_queue_size 1024
+    -f x11grab
+    -framerate 30
+    -video_size "$geometry"
+    -draw_mouse 1
+    -i ":0.0+0,0"
+  )
+
+  if [[ -n "$sys_audio" && -n "$mic_audio" && "$sys_audio" != "$mic_audio" ]]; then
+
+    ffargs+=(
+      -thread_queue_size 1024 -f pulse -i "$sys_audio"
+      -thread_queue_size 1024 -f pulse -i "$mic_audio"
+      -filter_complex "[1:a]volume=1.5[sys];[2:a]volume=1.2[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+      -map 0:v:0 -map "[aout]"
+      -c:a aac -b:a 192k
+    )
 
   elif [[ -n "$sys_audio" ]]; then
 
-    ffmpeg \
-      -hide_banner \
-      -loglevel error \
-      \
-      -thread_queue_size 1024 \
-      -f x11grab \
-      -framerate 30 \
-      -video_size "$geometry" \
-      -draw_mouse 1 \
-      -i ":0.0+0,0" \
-      \
-      -thread_queue_size 1024 \
-      -f pulse \
-      -i "$sys_audio" \
-      \
-      -map 0:v:0 \
-      -map 1:a:0 \
-      \
-      -c:v libx264 \
-      -preset ultrafast \
-      -crf 23 \
-      -pix_fmt yuv420p \
-      -g 30 \
-      \
-      -c:a aac \
-      -b:a 192k \
-      \
-      -fps_mode cfr \
-      -movflags +faststart \
-      \
-      -y "$output" \
-      >"${REC_FLAG}.log" 2>&1 &
+    ffargs+=(
+      -thread_queue_size 1024 -f pulse -i "$sys_audio"
+      -map 0:v:0 -map 1:a:0
+      -c:a aac -b:a 192k
+    )
+
+  elif [[ -n "$mic_audio" ]]; then
+
+    ffargs+=(
+      -thread_queue_size 1024 -f pulse -i "$mic_audio"
+      -map 0:v:0 -map 1:a:0
+      -c:a aac -b:a 192k
+    )
 
   else
 
-    # No audio available
-    ffmpeg \
-      -hide_banner \
-      -loglevel error \
-      \
-      -thread_queue_size 1024 \
-      -f x11grab \
-      -framerate 30 \
-      -video_size "$geometry" \
-      -draw_mouse 1 \
-      -i ":0.0+0,0" \
-      \
-      -map 0:v:0 \
-      \
-      -c:v libx264 \
-      -preset ultrafast \
-      -crf 23 \
-      -pix_fmt yuv420p \
-      -g 30 \
-      \
-      -an \
-      \
-      -fps_mode cfr \
-      -movflags +faststart \
-      \
-      -y "$output" \
-      >"${REC_FLAG}.log" 2>&1 &
+    ffargs+=(-map 0:v:0 -an)
+
   fi
+
+  # Good compression, decent quality, CPU-only.
+  ffargs+=(
+    -c:v libx264
+    -preset slower
+    -crf 30
+    -pix_fmt yuv420p
+    -g 30
+    -fps_mode cfr
+    -movflags +faststart
+    -y "$output"
+  )
+
+  ffmpeg "${ffargs[@]}" >"${REC_FLAG}.log" 2>&1 &
 
   local pid=$!
 

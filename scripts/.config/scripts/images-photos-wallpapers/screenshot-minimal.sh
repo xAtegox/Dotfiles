@@ -25,14 +25,10 @@ flags=()
 
 # Take the screenshot
 "$TOOL" -silent "${flags[@]}" "${filepath}" || {
-  notify-send "Screenshot Failed" "Could not save screenshot to ${filepath}."
   exit 1
 }
 
 # Copy to clipboard using xclip
 if command -v xclip >/dev/null 2>&1; then
   xclip -selection clipboard -t image/png -i "${filepath}"
-  notify-send "Screenshot Taken" "Saved as ${current} and copied to clipboard."
-else
-  notify-send "Screenshot Taken" "Saved as ${current} but xclip is not installed."
 fi
