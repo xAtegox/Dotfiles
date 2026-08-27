@@ -147,8 +147,6 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
 
 /* =========================================================
    CONTENT ROW
-   Wider max-width + space-between pushes the KP toward the
-   true right edge instead of hugging the result column.
    ========================================================= */
 
 #lambda-content {
@@ -157,7 +155,7 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     justify-content: space-between !important;
 
     max-width: 1600px !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
 
     padding: 34px 48px 100px 48px !important;
 
@@ -172,7 +170,7 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
 
 
 /* =========================================================
-   ORGANIC RESULTS — roomier
+   ORGANIC RESULTS
    ========================================================= */
 
 #lambda-results {
@@ -309,26 +307,36 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     margin-bottom: 12px !important;
 }
 
-.lambda-kp-img {
-    display: block !important;
-    width: 100% !important;
-    height: 210px !important;
-
-    object-fit: cover !important;
-
-    border-radius: 3px !important;
+.lambda-kp-body {
+    display: flex !important;
+    gap: 14px !important;
+    align-items: flex-start !important;
 
     margin-bottom: 12px !important;
 }
 
+.lambda-kp-img {
+    flex: 0 0 110px !important;
+    width: 110px !important;
+    height: 110px !important;
+
+    object-fit: cover !important;
+    border-radius: 3px !important;
+
+    margin-bottom: 0 !important;
+}
+
 .lambda-kp-desc {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+
     color: #999 !important;
 
     font-family: monospace !important;
     font-size: 12.5px !important;
     line-height: 1.6 !important;
 
-    margin-bottom: 12px !important;
+    margin-bottom: 0 !important;
 }
 
 .lambda-kp-source {
@@ -351,6 +359,11 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     display: block !important;
 }
 
+#lambda-content:has(#lambda-results.lambda-image-grid) #lambda-main-col {
+    max-width: none !important;
+    width: 100% !important;
+}
+
 #lambda-results.lambda-image-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
@@ -360,11 +373,16 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
 }
 
 .lambda-image-card {
+    display: block !important;
+
     background: #151515 !important;
 
     border: 1px solid #292929 !important;
     border-radius: 4px !important;
     overflow: hidden !important;
+
+    text-decoration: none !important;
+    color: inherit !important;
 }
 
 .lambda-image-card img {
@@ -429,43 +447,4 @@ a:hover {
 * {
     scrollbar-width: thin !important;
     scrollbar-color: #444 #111 !important;
-}
-
-/* Fix: main column's 800px cap was leaking into image-grid
-   mode since results now nest inside #lambda-main-col. */
-#lambda-content:has(#lambda-results.lambda-image-grid) #lambda-main-col {
-    max-width: none !important;
-    width: 100% !important;
-}
-
-/* Horizontal knowledge panel body: image left, text right */
-.lambda-kp-body {
-    display: flex !important;
-    gap: 14px !important;
-    align-items: flex-start !important;
-
-    margin-bottom: 12px !important;
-}
-
-.lambda-kp-img {
-    flex: 0 0 110px !important;
-    width: 110px !important;
-    height: 110px !important;
-
-    object-fit: cover !important;
-    border-radius: 3px !important;
-
-    margin-bottom: 0 !important;
-}
-
-.lambda-kp-desc {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-
-    margin-bottom: 0 !important;
-}
-
-/* Content row was centering via margin:auto — pin to the left instead */
-#lambda-content {
-    margin: 0 !important;
 }

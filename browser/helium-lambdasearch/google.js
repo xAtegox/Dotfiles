@@ -300,8 +300,16 @@
 
             seenImageSrcs.add(src);
 
-            const card = document.createElement("div");
+            // Capture the source-page link before the original img
+            // gets buried under our rebuilt DOM.
+            const link = img.closest("a[href^='http']");
+            const href = link ? link.href : src;
+
+            const card = document.createElement("a");
             card.className = "lambda-image-card";
+            card.href = href;
+            card.target = "_blank";
+            card.rel = "noopener";
 
             card.innerHTML = `
                 <img src="${src}" alt="">

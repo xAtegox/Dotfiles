@@ -14,4 +14,16 @@ form.addEventListener("submit", (event) => {
     encodeURIComponent(query);
 });
 
-input.focus();
+// autofocus alone loses to Chrome's omnibox on override pages —
+// force it after load, with a short delay since focus() called
+// too early can still lose the race.
+function forceFocus() {
+  input.focus();
+}
+
+window.addEventListener("load", () => {
+  forceFocus();
+  setTimeout(forceFocus, 50);
+});
+
+window.addEventListener("focus", forceFocus);
