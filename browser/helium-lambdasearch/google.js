@@ -18,10 +18,6 @@
         return u.href;
     }
 
-    // If the current page was loaded without &num=, reload once
-    // with it added so Google actually returns more per page.
-    // Guarded by a URL flag, not sessionStorage, so it only ever
-    // fires a single redirect per navigation.
     function ensureNumParam() {
         if (isImagesTab()) return;
 
@@ -29,9 +25,7 @@
         if (params.has("num")) return;
 
         params.set("num", String(RESULTS_PER_PAGE));
-        window.location.replace(
-            window.location.pathname + "?" + params.toString()
-        );
+        window.location.replace(window.location.pathname + "?" + params.toString());
     }
 
     function createBar() {
@@ -250,7 +244,6 @@
 
     const seenImageSrcs = new Set();
 
-    // Google's own "G" wordmark/logo assets, not a search result.
     function isBrandAsset(img) {
         const src = (img.currentSrc || img.src || "").toLowerCase();
         const alt = (img.alt || "").toLowerCase();
@@ -323,122 +316,55 @@
         });
     }
 
-    // Excludes small icon/logo assets (Wikipedia's own "W" mark,
-    // favicons) by requiring a real photo-sized area, and by
-    // src/alt pattern for known logo assets.
-    function isLikelyIcon(img) {
-        const src = (img.currentSrc || img.src || "").toLowerCase();
-        const alt = (img.alt || "").toLowerCase();
-
-        return (
-            src.includes("wikipedia-logo") ||
-            src.includes("/static/images/icons/") ||
-            src.includes("favicon") ||
-            alt.includes("wikipedia") && alt.includes("logo")
-        );
-    }
-
-    function bestImageIn(block) {
-        const imgs = [...block.querySelectorAll("img")]
-            .filter(img => !isLikelyIcon(img));
-
-        let best = null;
-        let bestArea = 0;
-
-        imgs.forEach(img => {
-            const w = img.naturalWidth || img.width || 0;
-            const h = img.naturalHeight || img.height || 0;
-            const area = w * h;
-
-            // Require a real photo-scale image (roughly 150x150+)
-            // so small badges never win even if nothing else has loaded yet.
-            if (area > bestArea && area >= 22500) {
-                bestArea = area;
-                best = img;
-            }
-        });
-
-        return { img: best, area: bestArea };
-    }
-
-    function bestDescriptionIn(block, titleText) {
-        const candidates = [...block.querySelectorAll("*")]
-            .filter(el => el.children.length === 0)
-            .map(el => el.textContent.trim())
-            .filter(t => t.length > 25 && t !== titleText);
-
-        candidates.sort((a, b) => b.length - a.length);
-        return candidates[0] || "";
-    }
-
+    /*
+     * KNOWLEDGE PANEL — built from confirmed real Google markup:
+     *   title:  [data-attrid="title"]
+     *   image:  img[id^="dimg_"], src on encrypted-tbn*.gstatic.com
+     *   desc:   longest plain <span> inside the panel container
+     */
     function buildKnowledgePanel() {
         if (isImagesTab()) return;
+        if (document.getElementById("lambda-kp")) return;
 
-        const query = getQuery().trim().toLowerCase();
-        if (!query) return;
+        const titleEl = document.querySelector('[data-attrid="title"]');
+        if (!titleEl) return;
 
-        const headings = [...document.querySelectorAll("h2, h3, div[role='heading']")]
-            .filter(h => !h.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"));
+        const titleText = titleEl.textContent.trim();
+        if (!titleText) return;
 
-        const match = headings.find(h => {
-            const t = h.textContent.trim().toLowerCase();
-            return t.length > 0 && (t === query || t.startsWith(query) || query.startsWith(t));
-        });
+        let container = titleEl;
+        let panelImg = null;
 
-        if (!match) return;
-
-        let block = match;
-        let found = null;
-
-        for (let i = 0; i < 8 && block.parentElement; i++) {
-            block = block.parentElement;
-
-            const hasImg = block.querySelector("img");
-            const text = (block.innerText || "").trim();
-
-            if (hasImg && text.length > 80) {
-                found = block;
-                break;
-            }
+        for (let i = 0; i < 15 && container.parentElement; i++) {
+            container = container.parentElement;
+            panelImg = container.querySelector('img[id^="dimg_"]');
+            if (panelImg) break;
         }
 
-        if (!found) return;
+        if (!container) return;
 
-        const { img, area } = bestImageIn(found);
-        const imgSrc = img ? (img.currentSrc || img.src) : "";
-        const titleText = match.textContent.trim();
+        const imgSrc = panelImg ? (panelImg.currentSrc || panelImg.src) : "";
 
-        let panel = document.getElementById("lambda-kp");
+        const spans = [...container.querySelectorAll("span")]
+            .filter(s => s.children.length === 0)
+            .map(s => s.textContent.trim())
+            .filter(t => t.length > 40 && t !== titleText);
 
-        if (panel) {
-            const prevArea = parseInt(panel.dataset.imgArea || "0", 10);
-            if (imgSrc && area > prevArea) {
-                const imgEl = panel.querySelector(".lambda-kp-img");
-                if (imgEl) imgEl.src = imgSrc;
-                panel.dataset.imgArea = String(area);
-            }
+        spans.sort((a, b) => b.length - a.length);
+        const description = spans[0] || "";
 
-            const descEl = panel.querySelector(".lambda-kp-desc");
-            if (descEl && !descEl.textContent.trim()) {
-                const desc = bestDescriptionIn(found, titleText);
-                if (desc) descEl.textContent = desc;
-            }
-            return;
-        }
-
-        const description = bestDescriptionIn(found, titleText);
-
-        const links = [...found.querySelectorAll("a[href^='http']")];
+        const links = [...container.querySelectorAll("a[href^='http']")];
         const sourceLink = links.find(a => a.href.includes("wikipedia.org")) || links[0];
 
-        panel = document.createElement("div");
+        const panel = document.createElement("div");
         panel.id = "lambda-kp";
-        panel.dataset.imgArea = String(area);
 
         panel.innerHTML = `
             <div class="lambda-kp-title">${titleText}</div>
-            ${imgSrc ? `<img class="lambda-kp-img" src="${imgSrc}">` : ""}
-            <div class="lambda-kp-desc"></div>
+            <div class="lambda-kp-body">
+                ${imgSrc ? `<img class="lambda-kp-img" src="${imgSrc}">` : ""}
+                <div class="lambda-kp-desc"></div>
+            </div>
             ${sourceLink ? `<div class="lambda-kp-source">Source: <a href="${sourceLink.href}">${new URL(sourceLink.href).hostname.replace(/^www\./, "")}</a></div>` : ""}
         `;
 
@@ -478,205 +404,3 @@
         activate();
     }
 })();
-
-// ---- crow-bug patch: loosen match + walk-up, applied after the
-// original definitions above by simply overriding buildKnowledgePanel.
-
-function buildKnowledgePanelV2() {
-    if (isImagesTab()) return;
-    if (document.getElementById("lambda-kp")) {
-        // still allow late image/description backfill on existing panel
-    }
-
-    const query = getQuery().trim().toLowerCase();
-    if (!query) return;
-
-    const headingSelectors = "h1, h2, h3, div[role='heading'], [aria-level]";
-    const headings = [...document.querySelectorAll(headingSelectors)]
-        .filter(h => !h.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"));
-
-    // Loosened: also accept a heading that CONTAINS the query as a
-    // whole word, not just startsWith/equals — catches panels titled
-    // e.g. "Crow (bird)" or "Crow — Corvus" for a "crow" query.
-    const wordBoundary = new RegExp("\\b" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
-
-    const candidates = headings.filter(h => {
-        const t = h.textContent.trim();
-        return t.length > 0 && t.length < 60 && wordBoundary.test(t);
-    });
-
-    if (!candidates.length) return;
-
-    let found = null;
-    let match = null;
-
-    for (const h of candidates) {
-        let block = h;
-        for (let i = 0; i < 12 && block.parentElement; i++) {
-            block = block.parentElement;
-
-            const hasImg = block.querySelector("img");
-            const text = (block.innerText || "").trim();
-
-            // Loosened from >80 to >40 characters of surrounding text.
-            if (hasImg && text.length > 40) {
-                found = block;
-                match = h;
-                break;
-            }
-        }
-        if (found) break;
-    }
-
-    if (!found) return;
-
-    const { img, area } = bestImageIn(found);
-    const imgSrc = img ? (img.currentSrc || img.src) : "";
-    const titleText = match.textContent.trim();
-
-    let panel = document.getElementById("lambda-kp");
-
-    if (panel) {
-        const prevArea = parseInt(panel.dataset.imgArea || "0", 10);
-        if (imgSrc && area > prevArea) {
-            const imgEl = panel.querySelector(".lambda-kp-img");
-            if (imgEl) imgEl.src = imgSrc;
-            panel.dataset.imgArea = String(area);
-        }
-
-        const descEl = panel.querySelector(".lambda-kp-desc");
-        if (descEl && !descEl.textContent.trim()) {
-            const desc = bestDescriptionIn(found, titleText);
-            if (desc) descEl.textContent = desc;
-        }
-        return;
-    }
-
-    const description = bestDescriptionIn(found, titleText);
-
-    const links = [...found.querySelectorAll("a[href^='http']")];
-    const sourceLink = links.find(a => a.href.includes("wikipedia.org")) || links[0];
-
-    panel = document.createElement("div");
-    panel.id = "lambda-kp";
-    panel.dataset.imgArea = String(area);
-
-    // Horizontal layout: image + text side by side in a top row,
-    // source line below — matches the reference design.
-    panel.innerHTML = `
-        <div class="lambda-kp-title">${titleText}</div>
-        <div class="lambda-kp-body">
-            ${imgSrc ? `<img class="lambda-kp-img" src="${imgSrc}">` : ""}
-            <div class="lambda-kp-desc"></div>
-        </div>
-        ${sourceLink ? `<div class="lambda-kp-source">Source: <a href="${sourceLink.href}">${new URL(sourceLink.href).hostname.replace(/^www\./, "")}</a></div>` : ""}
-    `;
-
-    panel.querySelector(".lambda-kp-desc").textContent = description;
-
-    createContent().appendChild(panel);
-}
-
-// Swap the observer/activate calls over to the v2 builder.
-window.__lambdaBuildKP = buildKnowledgePanelV2;
-
-// ---- crow-bug patch: loosen match + walk-up, applied after the
-// original definitions above by simply overriding buildKnowledgePanel.
-
-function buildKnowledgePanelV2() {
-    if (isImagesTab()) return;
-    if (document.getElementById("lambda-kp")) {
-        // still allow late image/description backfill on existing panel
-    }
-
-    const query = getQuery().trim().toLowerCase();
-    if (!query) return;
-
-    const headingSelectors = "h1, h2, h3, div[role='heading'], [aria-level]";
-    const headings = [...document.querySelectorAll(headingSelectors)]
-        .filter(h => !h.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"));
-
-    // Loosened: also accept a heading that CONTAINS the query as a
-    // whole word, not just startsWith/equals — catches panels titled
-    // e.g. "Crow (bird)" or "Crow — Corvus" for a "crow" query.
-    const wordBoundary = new RegExp("\\b" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
-
-    const candidates = headings.filter(h => {
-        const t = h.textContent.trim();
-        return t.length > 0 && t.length < 60 && wordBoundary.test(t);
-    });
-
-    if (!candidates.length) return;
-
-    let found = null;
-    let match = null;
-
-    for (const h of candidates) {
-        let block = h;
-        for (let i = 0; i < 12 && block.parentElement; i++) {
-            block = block.parentElement;
-
-            const hasImg = block.querySelector("img");
-            const text = (block.innerText || "").trim();
-
-            // Loosened from >80 to >40 characters of surrounding text.
-            if (hasImg && text.length > 40) {
-                found = block;
-                match = h;
-                break;
-            }
-        }
-        if (found) break;
-    }
-
-    if (!found) return;
-
-    const { img, area } = bestImageIn(found);
-    const imgSrc = img ? (img.currentSrc || img.src) : "";
-    const titleText = match.textContent.trim();
-
-    let panel = document.getElementById("lambda-kp");
-
-    if (panel) {
-        const prevArea = parseInt(panel.dataset.imgArea || "0", 10);
-        if (imgSrc && area > prevArea) {
-            const imgEl = panel.querySelector(".lambda-kp-img");
-            if (imgEl) imgEl.src = imgSrc;
-            panel.dataset.imgArea = String(area);
-        }
-
-        const descEl = panel.querySelector(".lambda-kp-desc");
-        if (descEl && !descEl.textContent.trim()) {
-            const desc = bestDescriptionIn(found, titleText);
-            if (desc) descEl.textContent = desc;
-        }
-        return;
-    }
-
-    const description = bestDescriptionIn(found, titleText);
-
-    const links = [...found.querySelectorAll("a[href^='http']")];
-    const sourceLink = links.find(a => a.href.includes("wikipedia.org")) || links[0];
-
-    panel = document.createElement("div");
-    panel.id = "lambda-kp";
-    panel.dataset.imgArea = String(area);
-
-    // Horizontal layout: image + text side by side in a top row,
-    // source line below — matches the reference design.
-    panel.innerHTML = `
-        <div class="lambda-kp-title">${titleText}</div>
-        <div class="lambda-kp-body">
-            ${imgSrc ? `<img class="lambda-kp-img" src="${imgSrc}">` : ""}
-            <div class="lambda-kp-desc"></div>
-        </div>
-        ${sourceLink ? `<div class="lambda-kp-source">Source: <a href="${sourceLink.href}">${new URL(sourceLink.href).hostname.replace(/^www\./, "")}</a></div>` : ""}
-    `;
-
-    panel.querySelector(".lambda-kp-desc").textContent = description;
-
-    createContent().appendChild(panel);
-}
-
-// Swap the observer/activate calls over to the v2 builder.
-window.__lambdaBuildKP = buildKnowledgePanelV2;
