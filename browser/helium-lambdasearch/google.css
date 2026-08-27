@@ -1,0 +1,361 @@
+/* =========================================================
+   λSearch — Google
+   Layout / minimal interface
+   ========================================================= */
+
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+html {
+    background: #111 !important;
+}
+
+body {
+    margin: 0 !important;
+    background: #111 !important;
+    color: #d0d0d0 !important;
+
+    font-family:
+        "JetBrains Mono",
+        "DejaVu Sans Mono",
+        monospace !important;
+}
+
+
+/* =========================================================
+   REMOVE GOOGLE CHROME
+   ========================================================= */
+
+#gb,
+#gbwa,
+#gbq,
+#gbq1,
+#gbq2,
+#fbar {
+    display: none !important;
+}
+
+
+/* =========================================================
+   λSEARCH HEADER
+   ========================================================= */
+
+#lambda-search-bar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999999 !important;
+
+    width: 100% !important;
+    height: 58px !important;
+
+    padding: 0 32px !important;
+
+    display: flex !important;
+    align-items: center !important;
+
+    gap: 28px !important;
+
+    box-sizing: border-box !important;
+
+    background: rgba(17, 17, 17, 0.96) !important;
+
+    border-bottom: 1px solid #292929 !important;
+}
+
+
+/* λSearch */
+
+#lambda-logo {
+    flex-shrink: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    color: #d8d8d8 !important;
+
+    font-family: monospace !important;
+    font-size: 19px !important;
+    font-weight: 600 !important;
+
+    letter-spacing: -1px !important;
+
+    user-select: none !important;
+}
+
+
+/* Search form */
+
+#lambda-form {
+    width: 520px !important;
+    max-width: 55vw !important;
+
+    margin: 0 !important;
+}
+
+
+/* Search input */
+
+#lambda-input {
+    width: 100% !important;
+    height: 34px !important;
+
+    padding: 0 13px !important;
+
+    box-sizing: border-box !important;
+
+    background: #181818 !important;
+
+    border: 1px solid #353535 !important;
+    border-radius: 5px !important;
+
+    outline: none !important;
+
+    color: #d5d5d5 !important;
+
+    font-family: monospace !important;
+    font-size: 13px !important;
+}
+
+#lambda-input:hover {
+    border-color: #484848 !important;
+}
+
+#lambda-input:focus {
+    border-color: #555 !important;
+
+    box-shadow: none !important;
+}
+
+
+/* =========================================================
+   REMOVE GOOGLE'S OWN SEARCH BOX
+   ========================================================= */
+
+.RNNXgb,
+.gLFyf {
+    display: none !important;
+}
+
+
+/* =========================================================
+   MAIN RESULTS AREA
+   ========================================================= */
+
+#cnt {
+    background: transparent !important;
+}
+
+#main {
+    background: transparent !important;
+}
+
+#center_col {
+    background: transparent !important;
+}
+
+
+/*
+ * Keep results relatively narrow.
+ *
+ * This is important for the aesthetic:
+ * results shouldn't stretch across the entire
+ * monitor.
+ */
+
+#search {
+    width: 760px !important;
+    max-width: calc(100vw - 360px) !important;
+
+    margin: 0 auto !important;
+
+    padding-top: 34px !important;
+    padding-bottom: 100px !important;
+}
+
+
+/* =========================================================
+   RESULT BLOCKS
+   ========================================================= */
+
+.MjjYud {
+    margin-bottom: 30px !important;
+
+    padding: 0 !important;
+}
+
+
+/* Result URL */
+
+.VuuXrf,
+.yuRUbf a {
+    color: #777 !important;
+
+    font-family: monospace !important;
+    font-size: 11px !important;
+
+    text-decoration: none !important;
+}
+
+
+/* Result title */
+
+.yuRUbf h3,
+h3 {
+    margin-top: 4px !important;
+    margin-bottom: 5px !important;
+
+    color: #d8d8d8 !important;
+
+    font-family: monospace !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+
+    line-height: 1.35 !important;
+}
+
+
+/* Description */
+
+.VwiC3b,
+.IsZvec {
+    color: #888 !important;
+
+    font-family: monospace !important;
+    font-size: 12px !important;
+
+    line-height: 1.55 !important;
+}
+
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+a {
+    color: #c5c5c5 !important;
+}
+
+a:visited {
+    color: #aaa !important;
+}
+
+a:hover {
+    color: #eee !important;
+}
+
+
+/* =========================================================
+   GOOGLE NAVIGATION / FILTERS
+   ========================================================= */
+
+#top_nav {
+    background: transparent !important;
+
+    border: 0 !important;
+}
+
+[role="navigation"] {
+    background: transparent !important;
+
+    border: 0 !important;
+}
+
+
+/*
+ * Make Google's search category tabs
+ * much quieter.
+ */
+
+h1,
+h2 {
+    color: #ccc !important;
+}
+
+
+/* =========================================================
+   KNOWLEDGE PANELS
+   ========================================================= */
+
+.kp-wholepage,
+.kno-rdesc,
+.knowledge-panel {
+    background: #151515 !important;
+
+    border-color: #292929 !important;
+}
+
+
+/* Panel text */
+
+.kno-fb-ctx,
+.kno-ecr-pt,
+.kno-rdesc,
+.kno-rdesc span {
+    color: #aaa !important;
+}
+
+
+/* Panel headings */
+
+.kno-ecr-pt {
+    color: #ddd !important;
+}
+
+
+/* =========================================================
+   IMAGES
+   ========================================================= */
+
+img {
+    border-radius: 3px !important;
+}
+
+
+/* =========================================================
+   GOOGLE BACKGROUNDS
+   ========================================================= */
+
+.sfbg,
+.minidiv {
+    background: #111 !important;
+
+    border: 0 !important;
+}
+
+.s8GkZd {
+    background: transparent !important;
+}
+
+
+/* =========================================================
+   GOOGLE CARDS
+   ========================================================= */
+
+.MjjYud > div {
+    background: transparent !important;
+}
+
+
+/* =========================================================
+   REMOVE RANDOM BORDERS
+   ========================================================= */
+
+.T4Efs,
+#taw {
+    border: 0 !important;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+* {
+    scrollbar-width: thin !important;
+
+    scrollbar-color:
+        #444
+        #111 !important;
+}
