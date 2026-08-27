@@ -10,8 +10,8 @@ body {
 }
 
 body {
-  background: #0d0b0c;
-  color: #d8d8d8;
+  background: var(--background, #0d0b0c);
+  color: var(--foreground, #d8d8d8);
 
   font-family: monospace;
 
@@ -27,18 +27,23 @@ main {
 
 .logo {
   text-align: center;
-
-  font-family: monospace;
-  font-size: 52px;
-  font-weight: bold;
-
   margin-bottom: 42px;
-
   user-select: none;
 }
 
-.logo span {
-  font-size: 60px;
+.logo img {
+  height: 60px;
+  width: auto;
+
+  /* Guessing at inversion for a light-theme source mark —
+     drop this if the logo is colored rather than monochrome. */
+  filter: invert(1);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 input {
@@ -49,10 +54,10 @@ input {
 
   padding: 0 20px;
 
-  background: #0b090a;
-  color: #dddddd;
+  background: var(--color0, #0b090a);
+  color: var(--foreground, #dddddd);
 
-  border: 1px solid #555;
+  border: 1px solid var(--color8, #555);
   border-radius: 8px;
 
   outline: none;
@@ -65,11 +70,33 @@ input {
 }
 
 input::placeholder {
-  color: #777;
+  color: var(--color8, #777);
 }
 
 input:focus {
-  border-color: #888;
+  border-color: var(--color15, #888);
   box-shadow:
     0 0 0 3px rgba(255, 255, 255, 0.07);
+}
+
+button {
+  margin-top: 18px;
+
+  padding: 10px 26px;
+
+  background: var(--color0, #0b090a);
+  color: var(--foreground, #dddddd);
+
+  border: 1px solid var(--color8, #555);
+  border-radius: 8px;
+
+  outline: none;
+  cursor: pointer;
+
+  font-family: monospace;
+  font-size: 14px;
+}
+
+button:hover {
+  border-color: var(--color15, #888);
 }

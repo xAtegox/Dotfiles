@@ -18,12 +18,20 @@
         "https://www.google.com/*"
       ],
       "css": [
+        "wal-colors.css",
         "google.css"
       ],
       "js": [
         "google.js"
       ],
       "run_at": "document_start"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["images.png"],
+      "matches": ["https://www.google.com/*"]
     }
   ]
 }

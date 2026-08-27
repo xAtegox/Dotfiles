@@ -28,6 +28,14 @@
         window.location.replace(window.location.pathname + "?" + params.toString());
     }
 
+    function logoUrl() {
+        try {
+            return chrome.runtime.getURL("images.png");
+        } catch {
+            return "images.png";
+        }
+    }
+
     function createBar() {
         if (document.getElementById("lambda-search-bar"))
             return;
@@ -36,7 +44,7 @@
         bar.id = "lambda-search-bar";
 
         bar.innerHTML = `
-            <div id="lambda-logo">λSearch</div>
+            <img id="lambda-logo" src="${logoUrl()}" alt="λSearch">
             <form id="lambda-form">
                 <input
                     id="lambda-input"
@@ -256,23 +264,31 @@
         );
     }
 
-    function findImageHost(img) {
+    // Single source of truth for "what page did this image come
+    // from" — used for BOTH the displayed hostname and the actual
+    // click-through link. Previously these used different logic,
+    // which is why clicking opened the raw thumbnail instead of
+    // the source site.
+    function getSourceHref(img) {
         const link = img.closest("a[href^='http']");
-        if (link) {
-            try { return new URL(link.href).hostname.replace(/^www\./, ""); }
-            catch {}
-        }
+        if (link) return link.href;
 
         const dataHost = img.closest("[data-lpage], [data-ru], [data-docid]");
         if (dataHost) {
             const raw = dataHost.getAttribute("data-lpage") || dataHost.getAttribute("data-ru");
             if (raw) {
-                try { return new URL(raw).hostname.replace(/^www\./, ""); }
-                catch {}
+                try { return decodeURIComponent(raw); }
+                catch { return raw; }
             }
         }
 
-        return "";
+        return null;
+    }
+
+    function findImageHost(href) {
+        if (!href) return "";
+        try { return new URL(href).hostname.replace(/^www\./, ""); }
+        catch { return ""; }
     }
 
     function buildImageResults() {
@@ -300,10 +316,7 @@
 
             seenImageSrcs.add(src);
 
-            // Capture the source-page link before the original img
-            // gets buried under our rebuilt DOM.
-            const link = img.closest("a[href^='http']");
-            const href = link ? link.href : src;
+            const href = getSourceHref(img) || src;
 
             const card = document.createElement("a");
             card.className = "lambda-image-card";
@@ -318,18 +331,12 @@
             `;
 
             card.querySelector(".lambda-image-title").textContent = img.alt || "";
-            card.querySelector(".lambda-image-url").textContent = findImageHost(img);
+            card.querySelector(".lambda-image-url").textContent = findImageHost(href);
 
             results.appendChild(card);
         });
     }
 
-    /*
-     * KNOWLEDGE PANEL — built from confirmed real Google markup:
-     *   title:  [data-attrid="title"]
-     *   image:  img[id^="dimg_"], src on encrypted-tbn*.gstatic.com
-     *   desc:   longest plain <span> inside the panel container
-     */
     function buildKnowledgePanel() {
         if (isImagesTab()) return;
         if (document.getElementById("lambda-kp")) return;
