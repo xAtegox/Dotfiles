@@ -1,11 +1,6 @@
 /* =========================================================
    λSearch — Google
-   Layout / minimal interface
-   ========================================================= */
-
-
-/* =========================================================
-   GLOBAL
+   Full page rebuild, no dependence on Google's classnames
    ========================================================= */
 
 html {
@@ -25,15 +20,10 @@ body {
 
 
 /* =========================================================
-   REMOVE GOOGLE CHROME
+   HIDE EVERYTHING GOOGLE RENDERED — we rebuild it ourselves
    ========================================================= */
 
-#gb,
-#gbwa,
-#gbq,
-#gbq1,
-#gbq2,
-#fbar {
+body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-results) {
     display: none !important;
 }
 
@@ -64,9 +54,6 @@ body {
     border-bottom: 1px solid #292929 !important;
 }
 
-
-/* λSearch */
-
 #lambda-logo {
     flex-shrink: 0 !important;
 
@@ -84,18 +71,12 @@ body {
     user-select: none !important;
 }
 
-
-/* Search form */
-
 #lambda-form {
     width: 520px !important;
     max-width: 55vw !important;
 
     margin: 0 !important;
 }
-
-
-/* Search input */
 
 #lambda-input {
     width: 100% !important;
@@ -124,102 +105,92 @@ body {
 
 #lambda-input:focus {
     border-color: #555 !important;
-
     box-shadow: none !important;
 }
 
 
 /* =========================================================
-   REMOVE GOOGLE'S OWN SEARCH BOX
+   TABS
    ========================================================= */
 
-.RNNXgb,
-.gLFyf {
-    display: none !important;
+#lambda-tabs {
+    display: flex !important;
+    gap: 24px !important;
+
+    padding: 14px 32px !important;
+
+    border-bottom: 1px solid #292929 !important;
+}
+
+#lambda-tabs a {
+    color: #888 !important;
+
+    font-family: monospace !important;
+    font-size: 13px !important;
+
+    text-decoration: none !important;
+
+    padding-bottom: 8px !important;
+}
+
+#lambda-tabs a.active {
+    color: #eee !important;
+    border-bottom: 2px solid #eee !important;
 }
 
 
 /* =========================================================
-   MAIN RESULTS AREA
+   ORGANIC RESULTS
    ========================================================= */
 
-#cnt {
-    background: transparent !important;
-}
-
-#main {
-    background: transparent !important;
-}
-
-#center_col {
-    background: transparent !important;
-}
-
-
-/*
- * Keep results relatively narrow.
- *
- * This is important for the aesthetic:
- * results shouldn't stretch across the entire
- * monitor.
- */
-
-#search {
+#lambda-results {
     width: 760px !important;
-    max-width: calc(100vw - 360px) !important;
+    max-width: calc(100vw - 64px) !important;
 
     margin: 0 auto !important;
 
-    padding-top: 34px !important;
-    padding-bottom: 100px !important;
+    padding: 34px 0 100px 0 !important;
 }
 
-
-/* =========================================================
-   RESULT BLOCKS
-   ========================================================= */
-
-.MjjYud {
+.lambda-result {
+    display: block !important;
     margin-bottom: 30px !important;
-
-    padding: 0 !important;
 }
 
+.lambda-result-url {
+    display: block !important;
 
-/* Result URL */
-
-.VuuXrf,
-.yuRUbf a {
     color: #777 !important;
 
     font-family: monospace !important;
     font-size: 11px !important;
 
     text-decoration: none !important;
+
+    margin-bottom: 4px !important;
 }
 
+.lambda-result-title {
+    display: block !important;
 
-/* Result title */
-
-.yuRUbf h3,
-h3 {
-    margin-top: 4px !important;
-    margin-bottom: 5px !important;
-
-    color: #d8d8d8 !important;
+    color: #999 !important;
 
     font-family: monospace !important;
     font-size: 16px !important;
     font-weight: 500 !important;
 
+    text-decoration: none !important;
+
     line-height: 1.35 !important;
+
+    margin-bottom: 5px !important;
 }
 
+.lambda-result-title:hover {
+    color: #eee !important;
+}
 
-/* Description */
-
-.VwiC3b,
-.IsZvec {
+.lambda-result-snippet {
     color: #888 !important;
 
     font-family: monospace !important;
@@ -230,121 +201,65 @@ h3 {
 
 
 /* =========================================================
-   LINKS
+   IMAGES TAB — grid
    ========================================================= */
 
-a {
-    color: #c5c5c5 !important;
+#lambda-results.lambda-image-grid {
+    width: 100% !important;
+    max-width: 1400px !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 14px !important;
+
+    padding: 34px 32px 100px 32px !important;
 }
 
-a:visited {
-    color: #aaa !important;
-}
-
-a:hover {
-    color: #eee !important;
-}
-
-
-/* =========================================================
-   GOOGLE NAVIGATION / FILTERS
-   ========================================================= */
-
-#top_nav {
-    background: transparent !important;
-
-    border: 0 !important;
-}
-
-[role="navigation"] {
-    background: transparent !important;
-
-    border: 0 !important;
-}
-
-
-/*
- * Make Google's search category tabs
- * much quieter.
- */
-
-h1,
-h2 {
-    color: #ccc !important;
-}
-
-
-/* =========================================================
-   KNOWLEDGE PANELS
-   ========================================================= */
-
-.kp-wholepage,
-.kno-rdesc,
-.knowledge-panel {
+.lambda-image-card {
     background: #151515 !important;
 
-    border-color: #292929 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
 }
 
+.lambda-image-card img {
+    display: block !important;
+    width: 100% !important;
+    height: 160px !important;
 
-/* Panel text */
+    object-fit: cover !important;
 
-.kno-fb-ctx,
-.kno-ecr-pt,
-.kno-rdesc,
-.kno-rdesc span {
-    color: #aaa !important;
+    border-radius: 0 !important;
 }
 
+.lambda-image-title {
+    padding: 6px 8px 0 8px !important;
 
-/* Panel headings */
+    color: #999 !important;
 
-.kno-ecr-pt {
-    color: #ddd !important;
+    font-family: monospace !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
 }
 
+.lambda-image-url {
+    padding: 2px 8px 6px 8px !important;
 
-/* =========================================================
-   IMAGES
-   ========================================================= */
+    color: #666 !important;
 
-img {
-    border-radius: 3px !important;
-}
+    font-family: monospace !important;
+    font-size: 10px !important;
 
-
-/* =========================================================
-   GOOGLE BACKGROUNDS
-   ========================================================= */
-
-.sfbg,
-.minidiv {
-    background: #111 !important;
-
-    border: 0 !important;
-}
-
-.s8GkZd {
-    background: transparent !important;
-}
-
-
-/* =========================================================
-   GOOGLE CARDS
-   ========================================================= */
-
-.MjjYud > div {
-    background: transparent !important;
-}
-
-
-/* =========================================================
-   REMOVE RANDOM BORDERS
-   ========================================================= */
-
-.T4Efs,
-#taw {
-    border: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 
@@ -354,8 +269,5 @@ img {
 
 * {
     scrollbar-width: thin !important;
-
-    scrollbar-color:
-        #444
-        #111 !important;
+    scrollbar-color: #444 #111 !important;
 }
