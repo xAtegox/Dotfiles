@@ -21,12 +21,6 @@ body {
 
 /* =========================================================
    ANTI-FOUC
-   "lambda-loading" is set synchronously the instant the
-   script runs (document_start) — before the real page has
-   painted. Everything but our own bar is invisibility-masked
-   from that point on, so there's nothing to flash.
-   Once "lambda-ready" lands, the real elements are fully
-   removed from layout instead of just hidden.
    ========================================================= */
 
 html.lambda-loading body > *:not(#lambda-search-bar) {
@@ -152,38 +146,43 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
 
 
 /* =========================================================
-   CONTENT ROW — results + knowledge panel share the width
+   CONTENT ROW
+   Wider max-width + space-between pushes the KP toward the
+   true right edge instead of hugging the result column.
    ========================================================= */
 
 #lambda-content {
     display: flex !important;
     align-items: flex-start !important;
+    justify-content: space-between !important;
 
-    gap: 32px !important;
-
-    max-width: 1400px !important;
+    max-width: 1600px !important;
     margin: 0 auto !important;
 
-    padding: 34px 32px 100px 32px !important;
+    padding: 34px 48px 100px 48px !important;
 
     box-sizing: border-box !important;
 }
 
+#lambda-main-col {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 800px !important;
+}
+
 
 /* =========================================================
-   ORGANIC RESULTS
+   ORGANIC RESULTS — roomier
    ========================================================= */
 
 #lambda-results {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    max-width: 760px !important;
+    width: 100% !important;
 }
 
 .lambda-result {
     display: block !important;
 
-    padding: 18px 0 !important;
+    padding: 22px 0 !important;
 
     border-top: 1px solid #222 !important;
 }
@@ -199,11 +198,11 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     color: #777 !important;
 
     font-family: monospace !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
 
     text-decoration: none !important;
 
-    margin-bottom: 4px !important;
+    margin-bottom: 5px !important;
 }
 
 .lambda-result-title {
@@ -212,14 +211,14 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     color: #999 !important;
 
     font-family: monospace !important;
-    font-size: 16px !important;
+    font-size: 18px !important;
     font-weight: 500 !important;
 
     text-decoration: none !important;
 
-    line-height: 1.35 !important;
+    line-height: 1.4 !important;
 
-    margin-bottom: 5px !important;
+    margin-bottom: 7px !important;
 }
 
 .lambda-result-title:hover {
@@ -230,9 +229,56 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     color: #888 !important;
 
     font-family: monospace !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
 
-    line-height: 1.55 !important;
+    line-height: 1.65 !important;
+}
+
+
+/* =========================================================
+   PAGINATION
+   ========================================================= */
+
+#lambda-pagination {
+    display: flex !important;
+    gap: 10px !important;
+
+    margin-top: 20px !important;
+    padding-top: 24px !important;
+
+    border-top: 1px solid #222 !important;
+}
+
+#lambda-pagination a {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    min-width: 30px !important;
+    height: 30px !important;
+
+    padding: 0 8px !important;
+
+    color: #888 !important;
+
+    font-family: monospace !important;
+    font-size: 13px !important;
+
+    text-decoration: none !important;
+
+    border: 1px solid #292929 !important;
+    border-radius: 4px !important;
+}
+
+#lambda-pagination a:hover {
+    color: #eee !important;
+    border-color: #484848 !important;
+}
+
+#lambda-pagination a.active {
+    color: #eee !important;
+    background: #1c1c1c !important;
+    border-color: #484848 !important;
 }
 
 
@@ -241,10 +287,10 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
    ========================================================= */
 
 #lambda-kp {
-    flex: 0 0 360px !important;
-    width: 360px !important;
+    flex: 0 0 380px !important;
+    width: 380px !important;
 
-    padding: 16px !important;
+    padding: 18px !important;
 
     background: #151515 !important;
     border: 1px solid #292929 !important;
@@ -257,32 +303,32 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
     color: #ccc !important;
 
     font-family: monospace !important;
-    font-size: 16px !important;
+    font-size: 17px !important;
     font-weight: 600 !important;
 
-    margin-bottom: 10px !important;
+    margin-bottom: 12px !important;
 }
 
 .lambda-kp-img {
     display: block !important;
     width: 100% !important;
-    height: 200px !important;
+    height: 210px !important;
 
     object-fit: cover !important;
 
     border-radius: 3px !important;
 
-    margin-bottom: 10px !important;
+    margin-bottom: 12px !important;
 }
 
 .lambda-kp-desc {
     color: #999 !important;
 
     font-family: monospace !important;
-    font-size: 12px !important;
-    line-height: 1.55 !important;
+    font-size: 12.5px !important;
+    line-height: 1.6 !important;
 
-    margin-bottom: 10px !important;
+    margin-bottom: 12px !important;
 }
 
 .lambda-kp-source {
@@ -298,7 +344,7 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-conte
 
 
 /* =========================================================
-   IMAGES TAB — square, spaced, bordered
+   IMAGES TAB
    ========================================================= */
 
 #lambda-content:has(#lambda-results.lambda-image-grid) {
@@ -383,4 +429,38 @@ a:hover {
 * {
     scrollbar-width: thin !important;
     scrollbar-color: #444 #111 !important;
+}
+
+/* Fix: main column's 800px cap was leaking into image-grid
+   mode since results now nest inside #lambda-main-col. */
+#lambda-content:has(#lambda-results.lambda-image-grid) #lambda-main-col {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+/* Horizontal knowledge panel body: image left, text right */
+.lambda-kp-body {
+    display: flex !important;
+    gap: 14px !important;
+    align-items: flex-start !important;
+
+    margin-bottom: 12px !important;
+}
+
+.lambda-kp-img {
+    flex: 0 0 110px !important;
+    width: 110px !important;
+    height: 110px !important;
+
+    object-fit: cover !important;
+    border-radius: 3px !important;
+
+    margin-bottom: 0 !important;
+}
+
+.lambda-kp-desc {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+
+    margin-bottom: 0 !important;
 }
