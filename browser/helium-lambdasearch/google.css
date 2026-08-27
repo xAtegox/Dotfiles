@@ -464,3 +464,8 @@ a:hover {
 
     margin-bottom: 0 !important;
 }
+
+/* Content row was centering via margin:auto — pin to the left instead */
+#lambda-content {
+    margin: 0 !important;
+}
