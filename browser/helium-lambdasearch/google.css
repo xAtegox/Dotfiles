@@ -20,10 +20,20 @@ body {
 
 
 /* =========================================================
-   HIDE EVERYTHING GOOGLE RENDERED — we rebuild it ourselves
+   ANTI-FOUC
+   "lambda-loading" is set synchronously the instant the
+   script runs (document_start) — before the real page has
+   painted. Everything but our own bar is invisibility-masked
+   from that point on, so there's nothing to flash.
+   Once "lambda-ready" lands, the real elements are fully
+   removed from layout instead of just hidden.
    ========================================================= */
 
-body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-results) {
+html.lambda-loading body > *:not(#lambda-search-bar) {
+    visibility: hidden !important;
+}
+
+body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-content) {
     display: none !important;
 }
 
@@ -52,6 +62,8 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
     background: rgba(17, 17, 17, 0.96) !important;
 
     border-bottom: 1px solid #292929 !important;
+
+    visibility: visible !important;
 }
 
 #lambda-logo {
@@ -140,21 +152,45 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 
 
 /* =========================================================
+   CONTENT ROW — results + knowledge panel share the width
+   ========================================================= */
+
+#lambda-content {
+    display: flex !important;
+    align-items: flex-start !important;
+
+    gap: 32px !important;
+
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+
+    padding: 34px 32px 100px 32px !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* =========================================================
    ORGANIC RESULTS
    ========================================================= */
 
 #lambda-results {
-    width: 760px !important;
-    max-width: calc(100vw - 64px) !important;
-
-    margin: 0 auto !important;
-
-    padding: 34px 0 100px 0 !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 760px !important;
 }
 
 .lambda-result {
     display: block !important;
-    margin-bottom: 30px !important;
+
+    padding: 18px 0 !important;
+
+    border-top: 1px solid #222 !important;
+}
+
+.lambda-result:first-child {
+    border-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 .lambda-result-url {
@@ -201,23 +237,86 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 
 
 /* =========================================================
-   IMAGES TAB — grid
+   KNOWLEDGE PANEL
    ========================================================= */
 
-#lambda-results.lambda-image-grid {
-    width: 100% !important;
-    max-width: 1400px !important;
+#lambda-kp {
+    flex: 0 0 360px !important;
+    width: 360px !important;
 
+    padding: 16px !important;
+
+    background: #151515 !important;
+    border: 1px solid #292929 !important;
+    border-radius: 4px !important;
+
+    box-sizing: border-box !important;
+}
+
+.lambda-kp-title {
+    color: #ccc !important;
+
+    font-family: monospace !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+
+    margin-bottom: 10px !important;
+}
+
+.lambda-kp-img {
+    display: block !important;
+    width: 100% !important;
+    height: 200px !important;
+
+    object-fit: cover !important;
+
+    border-radius: 3px !important;
+
+    margin-bottom: 10px !important;
+}
+
+.lambda-kp-desc {
+    color: #999 !important;
+
+    font-family: monospace !important;
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+
+    margin-bottom: 10px !important;
+}
+
+.lambda-kp-source {
+    color: #777 !important;
+
+    font-family: monospace !important;
+    font-size: 11px !important;
+}
+
+.lambda-kp-source a {
+    color: #999 !important;
+}
+
+
+/* =========================================================
+   IMAGES TAB — square, spaced, bordered
+   ========================================================= */
+
+#lambda-content:has(#lambda-results.lambda-image-grid) {
+    display: block !important;
+}
+
+#lambda-results.lambda-image-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
-    gap: 14px !important;
+    gap: 24px !important;
 
-    padding: 34px 32px 100px 32px !important;
+    max-width: none !important;
 }
 
 .lambda-image-card {
     background: #151515 !important;
 
+    border: 1px solid #292929 !important;
     border-radius: 4px !important;
     overflow: hidden !important;
 }
@@ -225,7 +324,9 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 .lambda-image-card img {
     display: block !important;
     width: 100% !important;
-    height: 160px !important;
+
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
 
     object-fit: cover !important;
 
@@ -233,7 +334,7 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 }
 
 .lambda-image-title {
-    padding: 6px 8px 0 8px !important;
+    padding: 8px 10px 0 10px !important;
 
     color: #999 !important;
 
@@ -250,7 +351,7 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 }
 
 .lambda-image-url {
-    padding: 2px 8px 6px 8px !important;
+    padding: 2px 10px 10px 10px !important;
 
     color: #666 !important;
 
@@ -264,8 +365,20 @@ body.lambda-mode > *:not(#lambda-search-bar):not(#lambda-tabs):not(#lambda-resul
 
 
 /* =========================================================
-   SCROLLBAR
+   LINKS / SCROLLBAR
    ========================================================= */
+
+a {
+    color: #c5c5c5 !important;
+}
+
+a:visited {
+    color: #aaa !important;
+}
+
+a:hover {
+    color: #eee !important;
+}
 
 * {
     scrollbar-width: thin !important;

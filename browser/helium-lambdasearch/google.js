@@ -1,4 +1,8 @@
 (() => {
+    // Hide the real page immediately — before DOMContentLoaded —
+    // so there's no flash of raw Google styling while we build.
+    document.documentElement.classList.add("lambda-loading");
+
     function getQuery() {
         return new URLSearchParams(window.location.search).get("q") || "";
     }
@@ -63,8 +67,25 @@
                class="${images ? "active" : ""}">Images</a>
         `;
 
-        const bar = document.getElementById("lambda-search-bar");
-        bar.insertAdjacentElement("afterend", tabs);
+        document
+            .getElementById("lambda-search-bar")
+            .insertAdjacentElement("afterend", tabs);
+    }
+
+    // Flex wrapper holding results + knowledge panel side by side,
+    // so leftover width gets distributed instead of sitting empty.
+    function createContent() {
+        let content = document.getElementById("lambda-content");
+        if (content) return content;
+
+        content = document.createElement("div");
+        content.id = "lambda-content";
+
+        document
+            .getElementById("lambda-tabs")
+            .insertAdjacentElement("afterend", content);
+
+        return content;
     }
 
     function createResultsContainer() {
@@ -74,21 +95,11 @@
         results = document.createElement("div");
         results.id = "lambda-results";
 
-        document
-            .getElementById("lambda-tabs")
-            .insertAdjacentElement("afterend", results);
+        createContent().appendChild(results);
 
         return results;
     }
 
-    /*
-     * Snippet extraction: walk up from the title anchor,
-     * and at each level check the ancestor's own visible
-     * text (innerText, so hidden nodes are excluded) for
-     * a line that isn't the title/breadcrumb and is long
-     * enough to plausibly be a description. Not leaf-only,
-     * since Google nests snippet text inside spans.
-     */
     function extractSnippet(anchor, titleText, breadcrumbText) {
         let block = anchor;
 
@@ -121,7 +132,7 @@
         const results = createResultsContainer();
 
         const headings = [...document.querySelectorAll("h3")]
-            .filter(h3 => !h3.closest("#lambda-search-bar, #lambda-tabs, #lambda-results"));
+            .filter(h3 => !h3.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"));
 
         headings.forEach(h3 => {
             const anchor = h3.closest("a[href^='http']");
@@ -161,20 +172,38 @@
 
     const seenImageSrcs = new Set();
 
+    function findImageHost(img) {
+        const link = img.closest("a[href^='http']");
+        if (link) {
+            try { return new URL(link.href).hostname.replace(/^www\./, ""); }
+            catch {}
+        }
+
+        const dataHost = img.closest("[data-lpage], [data-ru], [data-docid]");
+        if (dataHost) {
+            const raw = dataHost.getAttribute("data-lpage") || dataHost.getAttribute("data-ru");
+            if (raw) {
+                try { return new URL(raw).hostname.replace(/^www\./, ""); }
+                catch {}
+            }
+        }
+
+        return "";
+    }
+
     function buildImageResults() {
         const results = createResultsContainer();
         results.classList.add("lambda-image-grid");
 
         const imgs = [...document.querySelectorAll("img")]
             .filter(img => {
-                if (img.closest("#lambda-search-bar, #lambda-tabs, #lambda-results")) return false;
+                if (img.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"))
+                    return false;
 
                 const src = img.currentSrc || img.src || img.dataset.src || img.dataset.iurl;
                 if (!src || !src.startsWith("http")) return false;
                 if (seenImageSrcs.has(src)) return false;
 
-                // Don't gate on naturalWidth — lazy-loaded images report
-                // 0 until decoded. Fall back to declared attributes.
                 const w = img.naturalWidth || img.width || parseInt(img.getAttribute("width") || "0", 10);
                 return w === 0 || w > 60;
             });
@@ -185,9 +214,6 @@
 
             seenImageSrcs.add(src);
 
-            const alt = img.alt || "";
-            const link = img.closest("a[href^='http']");
-
             const card = document.createElement("div");
             card.className = "lambda-image-card";
 
@@ -197,32 +223,130 @@
                 <div class="lambda-image-url"></div>
             `;
 
-            card.querySelector(".lambda-image-title").textContent = alt;
-
-            let host = "";
-            if (link) {
-                try { host = new URL(link.href).hostname.replace(/^www\./, ""); }
-                catch {}
-            }
-            card.querySelector(".lambda-image-url").textContent = host;
+            card.querySelector(".lambda-image-title").textContent = img.alt || "";
+            card.querySelector(".lambda-image-url").textContent = findImageHost(img);
 
             results.appendChild(card);
         });
     }
 
+    // Knowledge panel keeps re-checking for a bigger/better image
+    // even after building, since Google's real thumbnail resolves
+    // in behind a placeholder icon after the initial paint.
+    function bestImageIn(block) {
+        const imgs = [...block.querySelectorAll("img")];
+
+        let best = null;
+        let bestArea = 0;
+
+        imgs.forEach(img => {
+            const w = img.naturalWidth || img.width || 0;
+            const h = img.naturalHeight || img.height || 0;
+            const area = w * h;
+
+            if (area > bestArea) {
+                bestArea = area;
+                best = img;
+            }
+        });
+
+        return { img: best, area: bestArea };
+    }
+
+    function buildKnowledgePanel() {
+        if (isImagesTab()) return;
+
+        const query = getQuery().trim().toLowerCase();
+        if (!query) return;
+
+        const headings = [...document.querySelectorAll("h2, h3, div[role='heading']")]
+            .filter(h => !h.closest("#lambda-search-bar, #lambda-tabs, #lambda-content"));
+
+        const match = headings.find(h => {
+            const t = h.textContent.trim().toLowerCase();
+            return t.length > 0 && (t === query || t.startsWith(query) || query.startsWith(t));
+        });
+
+        if (!match) return;
+
+        let block = match;
+        let found = null;
+
+        for (let i = 0; i < 8 && block.parentElement; i++) {
+            block = block.parentElement;
+
+            const hasImg = block.querySelector("img");
+            const text = (block.innerText || "").trim();
+
+            if (hasImg && text.length > 80) {
+                found = block;
+                break;
+            }
+        }
+
+        if (!found) return;
+
+        const { img, area } = bestImageIn(found);
+        const imgSrc = img ? (img.currentSrc || img.src) : "";
+
+        let panel = document.getElementById("lambda-kp");
+
+        if (panel) {
+            // Already built — only touch the image, and only if
+            // we've now found something meaningfully bigger.
+            const prevArea = parseInt(panel.dataset.imgArea || "0", 10);
+            if (imgSrc && area > prevArea && area > 2500) {
+                const imgEl = panel.querySelector(".lambda-kp-img");
+                if (imgEl) imgEl.src = imgSrc;
+                panel.dataset.imgArea = String(area);
+            }
+            return;
+        }
+
+        const paragraphs = [...found.querySelectorAll("*")]
+            .filter(el => el.children.length === 0)
+            .map(el => el.textContent.trim())
+            .filter(t => t.length > 60);
+
+        const description = paragraphs[0] || "";
+
+        const links = [...found.querySelectorAll("a[href^='http']")];
+        const sourceLink = links.find(a => a.href.includes("wikipedia.org")) || links[0];
+
+        panel = document.createElement("div");
+        panel.id = "lambda-kp";
+        panel.dataset.imgArea = String(area);
+
+        panel.innerHTML = `
+            <div class="lambda-kp-title">${match.textContent.trim()}</div>
+            ${imgSrc ? `<img class="lambda-kp-img" src="${imgSrc}">` : ""}
+            <div class="lambda-kp-desc"></div>
+            ${sourceLink ? `<div class="lambda-kp-source">Source: <a href="${sourceLink.href}">${new URL(sourceLink.href).hostname.replace(/^www\./, "")}</a></div>` : ""}
+        `;
+
+        panel.querySelector(".lambda-kp-desc").textContent = description;
+
+        createContent().appendChild(panel);
+    }
+
     function activate() {
         createBar();
         createTabs();
+        createContent();
+
         document.body.classList.add("lambda-mode");
+        document.documentElement.classList.remove("lambda-loading");
+        document.documentElement.classList.add("lambda-ready");
 
         const build = isImagesTab() ? buildImageResults : buildOrganicResults;
 
         build();
+        buildKnowledgePanel();
 
-        // Google renders results progressively / lazily —
-        // keep re-scanning on DOM changes instead of a fixed
-        // number of polls, so late content still gets picked up.
-        const observer = new MutationObserver(() => build());
+        const observer = new MutationObserver(() => {
+            build();
+            buildKnowledgePanel();
+        });
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
