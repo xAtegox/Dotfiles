@@ -528,6 +528,30 @@ if not manifest_path.exists():
 PYEOF
 }
 # ─────────────────────────────────────────────
+# Emacs theme reload (ewal / reload-pywall-theme)
+#
+# Runs in the daemon via emacsclient -e so it picks up the new pywal
+# colors WITHOUT opening a client frame. Only does anything if an emacs
+# daemon is reachable. Prefers the user's reload-pywall-theme command,
+# but falls back to reloading ewal directly so it still works even when
+# that command isn't defined in the daemon yet (e.g. stale daemon).
+# ─────────────────────────────────────────────
+sync_emacs() {
+  command -v emacsclient >/dev/null 2>&1 || return 0
+  emacsclient -e '
+    (if (fboundp (quote reload-pywall-theme))
+        (progn (reload-pywall-theme) "pywall-reloaded")
+      (if (fboundp (quote ewal-load-colors))
+          (progn
+            (mapc (function disable-theme) custom-enabled-themes)
+            (ewal-load-colors)
+            (load-theme (quote ewal-doom-one) t)
+            "pywall-reloaded")
+        "pywall-unavailable"))' \
+    2>/dev/null |
+    grep -q 'pywall-reloaded' || true
+}
+# ─────────────────────────────────────────────
 # Apply wallpaper
 # ─────────────────────────────────────────────
 apply() {
@@ -565,6 +589,7 @@ apply() {
       ':colorscheme wal<CR>' \
       2>/dev/null
   done
+  sync_emacs
   refresh_dwm
   echo "$file" >"$WAL_LAST"
   if [ -z "${LOADOUT_SILENT:-}" ]; then
@@ -605,6 +630,7 @@ apply_theme() {
     ;;
   esac
   sync_keyboard_color
+  sync_emacs
   refresh_dwm
   if [ -z "${LOADOUT_SILENT:-}" ]; then
     notify-send \
