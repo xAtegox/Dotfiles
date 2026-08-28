@@ -9,22 +9,36 @@
     // a third-party page. Fetching it manually as an extension
     // resource and inlining it as <style> uses the same code path
     // that already works for index.html, sidestepping that.
+    //
+    // To make pywal colours hot-swappable the fetch is cache-busted
+    // with a timestamp and re-run on an interval, replacing the
+    // <style> in place whenever the generated CSS actually changes —
+    // no tab reload needed.
+    let walCss = "";
+
     function injectWalColors() {
         try {
             const url = chrome.runtime.getURL("wal-colors.css");
-            fetch(url)
+            fetch(url + "?t=" + Date.now())
                 .then(res => res.text())
                 .then(css => {
-                    const style = document.createElement("style");
-                    style.id = "lambda-wal-colors";
+                    if (css === walCss) return;
+                    walCss = css;
+
+                    let style = document.getElementById("lambda-wal-colors");
+                    if (!style) {
+                        style = document.createElement("style");
+                        style.id = "lambda-wal-colors";
+                        document.documentElement.appendChild(style);
+                    }
                     style.textContent = css;
-                    document.documentElement.appendChild(style);
                 })
                 .catch(() => {});
         } catch {}
     }
 
     injectWalColors();
+    setInterval(injectWalColors, 2000);
 
     const RESULTS_PER_PAGE = 30;
 
@@ -98,6 +112,18 @@
                 );
             });
     }
+
+    function focusSearch() {
+        const input = document.getElementById("lambda-input");
+        if (input && document.activeElement !== input) {
+            input.focus();
+        }
+    }
+
+    window.addEventListener("focus", focusSearch);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) focusSearch();
+    });
 
     function createTabs() {
         if (document.getElementById("lambda-tabs"))
@@ -412,6 +438,7 @@
         ensureNumParam();
 
         createBar();
+        focusSearch();
         createTabs();
         createContent();
 

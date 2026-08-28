@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
   "name": "λSearch",
-  "version": "2.0",
+  "version": "2.1",
   "description": "Minimal keyboard-first search page",
+
+  "permissions": [],
 
   "host_permissions": [
     "https://www.google.com/*"
