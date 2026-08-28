@@ -1,6 +1,31 @@
 (() => {
     document.documentElement.classList.add("lambda-loading");
 
+    // wal-colors.css is a symlink to ~/.cache/wal/colors.css.
+    // Loading it via the static content_scripts "css" list works
+    // fine on our own extension pages but was silently failing
+    // when injected into google.com — likely the browser refusing
+    // to follow a symlink pointing outside the extension dir for
+    // a third-party page. Fetching it manually as an extension
+    // resource and inlining it as <style> uses the same code path
+    // that already works for index.html, sidestepping that.
+    function injectWalColors() {
+        try {
+            const url = chrome.runtime.getURL("wal-colors.css");
+            fetch(url)
+                .then(res => res.text())
+                .then(css => {
+                    const style = document.createElement("style");
+                    style.id = "lambda-wal-colors";
+                    style.textContent = css;
+                    document.documentElement.appendChild(style);
+                })
+                .catch(() => {});
+        } catch {}
+    }
+
+    injectWalColors();
+
     const RESULTS_PER_PAGE = 30;
 
     function getQuery() {
@@ -264,11 +289,6 @@
         );
     }
 
-    // Single source of truth for "what page did this image come
-    // from" — used for BOTH the displayed hostname and the actual
-    // click-through link. Previously these used different logic,
-    // which is why clicking opened the raw thumbnail instead of
-    // the source site.
     function getSourceHref(img) {
         const link = img.closest("a[href^='http']");
         if (link) return link.href;

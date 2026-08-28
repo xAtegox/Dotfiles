@@ -18,7 +18,6 @@
         "https://www.google.com/*"
       ],
       "css": [
-        "wal-colors.css",
         "google.css"
       ],
       "js": [
@@ -30,7 +29,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["images.png"],
+      "resources": ["images.png", "wal-colors.css"],
       "matches": ["https://www.google.com/*"]
     }
   ]

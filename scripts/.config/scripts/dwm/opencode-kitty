@@ -1,0 +1,15 @@
+#!/bin/bash
+# Open a floating kitty running opencode, sized to the currently-focused window.
+export DISPLAY="${DISPLAY:-:0}"
+
+ACTIVE="$(xdotool getactivewindow 2>/dev/null)"
+eval "$(xdotool getwindowgeometry --shell "$ACTIVE" 2>/dev/null)"
+WIDTH="${WIDTH:-0}"
+HEIGHT="${HEIGHT:-0}"
+
+kitty \
+  --class "opencode" \
+  --title "opencode" \
+  --override initial_window_width="$WIDTH" \
+  --override initial_window_height="$HEIGHT" \
+  opencode &
