@@ -16,14 +16,29 @@
 DIR="$(dirname "$(realpath "$0")")"
 WAL_LAST="$DIR/wal_last.txt"
 source "$DIR/wal-lib.sh"
+# Loadouts has its OWN mode post-processing — deliberately different from
+# gif-test's presets.
+#   light:  lighter but DESATURATED (grayish) so a green wallpaper gives a
+#           muted grey-green terminal, not a loud light green. Hue is still
+#           taken from the wallpaper — never a fixed gray.
+#   medium: only a little more colourful (gif-test's 2.0 sat boost is far
+#           too strong).
+PROCESS_LIGHT="-0.20 -0.45 -0.10 -0.40"
+PROCESS_MEDIUM="0.0 0.25 0.02 0.30 vibrant"
 
 WALL_DIR="$HOME/Pictures/wallpaper"
 LOADOUTS_DIR="$HOME/.config/scripts/loadouts"
 BANNERS_DIR="$HOME/.config/doom/banners"
 BANNERS_SUB="$BANNERS_DIR/loadouts"
+QM_CONF="$HOME/.config/qmmp/qmmp.conf"
+QM_SKINS="$HOME/.config/qmmp/skins"
+QM_LIB="$QM_SKINS/loadouts"
+QM_ACTIVE="$QM_SKINS/current.wsz"
+QM_MEMO="$HOME/.config/scripts/loadouts/.qmmp_active"
 SELF="$(realpath "$0")"
 mkdir -p "$LOADOUTS_DIR"
 mkdir -p "$BANNERS_SUB"
+mkdir -p "$QM_LIB"
 
 FZF_COLORS=(
   --color="bg:-1,bg+:#161916,fg:#888880,fg+:#c0c0ba"
@@ -57,8 +72,94 @@ set_banner() {
     mv "$f" "$BANNERS_SUB/$(basename "$f")"
   done
 }
+# QMMP skin helpers — "loadouts" folder approach, mirrors the banners
+# pattern. QMMP always points skin_path at a fixed file (current.wsz);
+# the real skins live by name in ~/.config/qmmp/skins/loadouts/. To change
+# the skin we just swap files: the chosen one becomes current.wsz, and the
+# old current.wsz is put back in the library under its real name. A small
+# memory file (QM_MEMO) records which real name is currently active so we
+# can restore it later. QMMP reads the skin at startup, so we restart it.
+qmmp_active_name() {
+  if [ -s "$QM_MEMO" ]; then
+    cat "$QM_MEMO"
+  else
+    # fallback: whatever qmmp.conf currently points at
+    qmmp_conf_skin
+  fi
+}
+qmmp_conf_skin() {
+  [ -f "$QM_CONF" ] || return 0
+  awk -F= '/^\[Skinned\]/{sec=1; next} /^\[/{sec=0} sec && /^skin_path=/{sub(/^skin_path=/,""); print}' "$QM_CONF" |
+    sed 's|.*/||'
+}
+# Move every top-level skin into the library, promote the currently
+# configured one to current.wsz, and point qmmp.conf at current.wsz.
+# Runs once (guarded by QM_MEMO existing).
+qmmp_ensure_lib() {
+  mkdir -p "$QM_LIB"
+  [ -f "$QM_MEMO" ] && return 0
+  local active
+  active="$(qmmp_conf_skin)"
+  [ -n "$active" ] || active="Edo_Shikaku.wsz"
+  if [ -f "$QM_SKINS/$active" ] && [ "$active" != "current.wsz" ]; then
+    mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
+  elif [ -f "$QM_ACTIVE" ]; then
+    : # current.wsz already exists
+  else
+    mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
+  fi
+  for f in "$QM_SKINS"/*.wsz; do
+    [ -f "$f" ] || continue
+    [ "$(basename "$f")" = "current.wsz" ] && continue
+    mv -f "$f" "$QM_LIB/$(basename "$f")"
+  done
+  if [ -f "$QM_CONF" ]; then
+    sed -i -e "/^\[Skinned\]/,/^\[/ s|^skin_path=.*|skin_path=$QM_ACTIVE|" "$QM_CONF"
+  fi
+  printf '%s' "$active" >"$QM_MEMO"
+}
+# Swap the chosen skin (real name) into place as current.wsz, return the
+# old one to the library, and restart qmmp if it was running.
+qmmp_activate() {
+  local name="$1" cur was_running=0
+  [ -n "$name" ] || return 0
+  qmmp_ensure_lib
+  cur="$(qmmp_active_name)"
+  [ "$name" = "$cur" ] && [ -f "$QM_ACTIVE" ] && return 0
+  # Swap synchronously — it's just two file moves, and doing it inline
+  # prevents a race where a second loadout read the memo mid-swap.
+  if [ -f "$QM_ACTIVE" ] && [ -n "$cur" ] && [ "$cur" != "$name" ]; then
+    # guard: if the old current.wsz isn't already in the library, keep a
+    # copy so we never lose a skin
+    if [ ! -f "$QM_LIB/$cur" ]; then
+      cp -f "$QM_ACTIVE" "$QM_LIB/$cur"
+    fi
+    mv -f "$QM_ACTIVE" "$QM_LIB/$cur"
+  fi
+  if [ -f "$QM_LIB/$name" ]; then
+    mv -f "$QM_LIB/$name" "$QM_ACTIVE"
+  fi
+  printf '%s' "$name" >"$QM_MEMO"
+  # QMMP caches the extracted skin in ~/.cache/qmmp/skinned/ and reuses it
+  # when only current.wsz's CONTENT changes (same filename). So the cache
+  # must be cleared on EVERY swap — even if qmmp isn't running now, the
+  # stale cache would be picked up on the next launch. Then restart qmmp
+  # (detached, so it can never block the picker) only if it's running.
+  rm -rf "$HOME/.cache/qmmp/skinned/skin"
+  if pgrep -x qmmp >/dev/null 2>&1; then
+    (
+      timeout 3 qmmp -q >/dev/null 2>&1
+      sleep 0.3
+      pkill -x qmmp >/dev/null 2>&1
+      sleep 0.3
+      qmmp >/dev/null 2>&1 &
+    ) >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+  fi
+  return 0
+}
 write_loadout() {
-  local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7"
+  local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8"
   {
     printf 'source=%s\n' "$src"
     if [ "$src" = theme ]; then
@@ -70,12 +171,13 @@ write_loadout() {
       printf 'mode=%s\n' "$mo"
     fi
     printf 'banner=%s\n' "$ban"
+    printf 'skin=%s\n' "$skin"
   } >"$file"
 }
 load_loadout() {
   local file="$1"
   [ -f "$file" ] || return 1
-  local src wall be mo th ban
+  local src wall be mo th ban skin
   LOADOUT_SILENT=1
   src="$(cfg_get source "$file")"; [ -z "$src" ] && src=wallpaper
   wall="$(cfg_get wallpaper "$file")"
@@ -83,6 +185,7 @@ load_loadout() {
   mo="$(cfg_get mode "$file")"; [ -z "$mo" ] && mo=dark
   th="$(cfg_get theme "$file")"
   ban="$(cfg_get banner "$file")"
+  skin="$(cfg_get skin "$file")"
   if [ "$src" = theme ] && [ -n "$th" ]; then
     apply_theme "$th" "$mo"
   elif [ -n "$wall" ] && [ -f "$wall" ]; then
@@ -91,6 +194,7 @@ load_loadout() {
     save_wallpaper_settings "$wall" "$be" "$mo"
   fi
   [ -n "$ban" ] && set_banner "$ban"
+  [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
 }
 delete_loadout() {
   local file="$1"
@@ -186,7 +290,7 @@ ueberzugpp cmd \
     -s "$SOCKET" \
     -i walpreview \
     -a add \
-    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 48) / 2)) \
+    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 48) / 2 - 5)) \
     -y $((FZF_PREVIEW_TOP + (FZF_PREVIEW_LINES - 12) / 2)) \
     --max-width 48 \
     --max-height 12 \
@@ -364,7 +468,7 @@ ueberzugpp cmd \
     -s "$SOCKET" \
     -i walpreview \
     -a add \
-    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 48) / 2)) \
+    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 48) / 2 - 5)) \
     -y $((FZF_PREVIEW_TOP + (FZF_PREVIEW_LINES - 12) / 2)) \
     --max-width 48 \
     --max-height 12 \
@@ -372,6 +476,31 @@ ueberzugpp cmd \
     2>/dev/null
 ' \
     <<<"$data"
+}
+stage_skin() {
+  local cur="${1:-}" active
+  qmmp_ensure_lib
+  active="$(qmmp_active_name)"
+  [ -n "$active" ] && [ "$active" != none ] || active=""
+  local data
+  data="$(
+    {
+      printf 'none\tkeep current (no change)\n'
+      if [ -n "$active" ]; then
+        printf '%s\t%s  [current]\n' "$active" "$active"
+      fi
+      for f in "$QM_LIB"/*.wsz; do
+        [ -f "$f" ] || continue
+        s="$(basename "$f")"
+        [ "$s" = "$active" ] && continue
+        printf '%s\t%s\n' "$s" "$s"
+      done
+    }
+  )"
+  run_fzf \
+    " QMMP skin " \
+    " [ skin ]  enter pick   C-n next   esc abort " \
+    "ctrl-n:accept" "" <<<"$data"
 }
 stage_name() {
   local suggest="${1:-}"
@@ -408,7 +537,7 @@ stage_name() {
 # appending a stage_* function and a call in new_loadout/edit_loadout.
 # ─────────────────────────────────────────────
 new_loadout() {
-  local wall="" src="" be="" mo="" th="" ban="" name="" res="" file=""
+  local wall="" src="" be="" mo="" th="" ban="" skin="" name="" res="" file=""
   res="$(stage_wallpaper)" || return 1
   wall="$res"
   res="$(stage_source)" || return 1
@@ -425,6 +554,9 @@ new_loadout() {
   res="$(stage_banner)" || return 1
   ban="$res"
   set_banner "$ban"
+  res="$(stage_skin)" || return 1
+  skin="$res"
+  [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
   while :; do
     name="$(stage_name "")" || return 1
     [ -n "$name" ] && break
@@ -432,7 +564,7 @@ new_loadout() {
   done
   name="${name//\//_}"
   file="$LOADOUTS_DIR/$name.conf"
-  write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban"
+  write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin"
   printf '%s' "$file"
 }
 edit_loadout() {
@@ -440,14 +572,15 @@ edit_loadout() {
   [ -f "$file" ] || return 1
   local name
   name="$(basename "$file" .conf)"
-  local cur_src cur_wall cur_be cur_mo cur_th cur_ban
-  local sel res rc wlab
+  local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin
+  local sel res rc wlab changed=0
   cur_src="$(cfg_get source "$file")"; [ -z "$cur_src" ] && cur_src=wallpaper
   cur_wall="$(cfg_get wallpaper "$file")"
   cur_be="$(cfg_get backend "$file")"
   cur_mo="$(cfg_get mode "$file")"; [ -z "$cur_mo" ] && cur_mo=dark
   cur_th="$(cfg_get theme "$file")"
   cur_ban="$(cfg_get banner "$file")"
+  cur_skin="$(cfg_get skin "$file")"
   while :; do
     wlab="—"
     [ -n "$cur_wall" ] && wlab="$(basename "$cur_wall")"
@@ -464,6 +597,7 @@ edit_loadout() {
           printf 'mode\tmode — %s\n' "$cur_mo"
         fi
         printf 'banner\tbanner — %s\n' "${cur_ban:-—}"
+        printf 'skin\tskin — %s\n' "${cur_skin:-—}"
       })")"
     rc=$?
     [ "$rc" -ne 0 ] && break
@@ -494,11 +628,19 @@ edit_loadout() {
       cur_ban="$res"
       set_banner "$cur_ban"
       ;;
+    skin)
+      res="$(stage_skin "$cur_skin")" || continue
+      cur_skin="$res"
+      [ -n "$cur_skin" ] && [ "$cur_skin" != none ] && qmmp_activate "$cur_skin"
+      ;;
     *) break ;;
     esac
-    write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban"
+    changed=1
+    write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin"
   done
-  return 0
+  # return 0 only if something was actually edited (so the caller reloads);
+  # pressing esc with no change returns 1 and skips the reload.
+  [ "$changed" = 1 ]
 }
 # ─────────────────────────────────────────────
 # Spawn kitty (smaller than gif-test, less tall)
@@ -549,8 +691,7 @@ if [[ "$1" != "--inside" ]]; then
   exec kitty \
     --class "loadouts" \
     --title "Loadouts" \
-    --override "initial_window_x=${POS_X}" \
-    --override "initial_window_y=${POS_Y}" \
+    --position "${POS_X}x${POS_Y}" \
     --config "$KITTY_CONF" \
     -e "$LAUNCHER"
 fi
@@ -616,10 +757,12 @@ echo "  backend:  ${be:-—}    mode: ${mo:-dark}";
 echo "  theme:    ${th:-—}";
 echo "  wallpaper: ${wall:-—}";
 echo "  banner:   ${ban:-—}";
+skn=$(grep "^skin=" "$f" 2>/dev/null | cut -d= -f2-);
+echo "  skin:     ${skn:-—}";
 echo;
 if [ -n "$wall" ] && [ -f "$wall" ]; then
   ueberzugpp cmd -s "$SOCKET" -i walpreview -a add \
-    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 46) / 2)) \
+    -x $((FZF_PREVIEW_LEFT + (FZF_PREVIEW_COLUMNS - 46) / 2 - 5)) \
     -y $((FZF_PREVIEW_TOP + 8)) \
     --max-width 46 --max-height 10 -f "$wall" 2>/dev/null;
 fi

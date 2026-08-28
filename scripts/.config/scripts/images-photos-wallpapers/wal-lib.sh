@@ -17,6 +17,11 @@
 : "${SETTINGS_FILE:=$HOME/.cache/wal/wallpaper_settings.tsv}"
 : "${PREVIEW_CACHE:=$HOME/.cache/wal_preview_thumbs}"
 : "${ZEN_THEME_DIR:=$HOME/.config/zennotes/themes/wal-theme}"
+# Mode post-processing presets (passed to process_wal_colors).
+# Defaults are gif-test's values; scripts that want their own modes
+# (e.g. loadouts) can override these after sourcing.
+: "${PROCESS_LIGHT:=-0.18 0.25 -0.10 0.20 vibrant}"
+: "${PROCESS_MEDIUM:=0.0 2.0 0.02 2.0 vibrant}"
 mkdir -p "$PREVIEW_CACHE" 2>/dev/null || true
 mkdir -p "$(dirname "$FAVORITES_FILE")" 2>/dev/null || true
 mkdir -p "$(dirname "$SETTINGS_FILE")" 2>/dev/null || true
@@ -187,7 +192,7 @@ def enrich(c, ld, sd, vibrant):
     if vibrant:
         s = min(1.0, s * (1.0 + sd))
     else:
-        s = min(0.8, s + sd)
+        s = max(0.0, min(0.8, s + sd))
     return hsl_to_hex(h, l, s)
 bg_l, bg_s, other_l, other_s = (
     float(x) for x in sys.argv[1:5]
@@ -537,18 +542,14 @@ apply() {
       --backend "$backend" \
       -t -n -q
     process_wal_colors \
-      -0.18 0.25 \
-      -0.10 0.20 \
-      vibrant
+      $PROCESS_LIGHT
     ;;
   medium)
     wal -i "$file" \
       --backend "$backend" \
       -t -n -q
     process_wal_colors \
-      0.0 2.0 \
-      0.02 2.0 \
-      vibrant
+      $PROCESS_MEDIUM
     ;;
   *)
     wal -i "$file" \
