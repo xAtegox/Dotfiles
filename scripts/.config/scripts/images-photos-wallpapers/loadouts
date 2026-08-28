@@ -376,7 +376,7 @@ stage_theme() {
   run_fzf \
     " Theme " \
     " [ theme ]  enter preview   C-n next   esc abort " \
-    "enter:execute-silent(\"$SELF\" --preview-theme {1})" \
+    "enter:execute-silent(\"$SELF\" --preview-theme {1}),ctrl-n:accept" \
     "
 theme={1};
 wal --theme \"\$theme\" -t -n -q 2>/dev/null;
