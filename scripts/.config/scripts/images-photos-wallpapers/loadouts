@@ -16,15 +16,14 @@
 DIR="$(dirname "$(realpath "$0")")"
 WAL_LAST="$DIR/wal_last.txt"
 source "$DIR/wal-lib.sh"
-# Loadouts has its OWN mode post-processing — deliberately different from
-# gif-test's presets.
-#   light:  lighter but DESATURATED (grayish) so a green wallpaper gives a
-#           muted grey-green terminal, not a loud light green. Hue is still
-#           taken from the wallpaper — never a fixed gray.
-#   medium: only a little more colourful (gif-test's 2.0 sat boost is far
-#           too strong).
-PROCESS_LIGHT="-0.20 -0.45 -0.10 -0.40"
-PROCESS_MEDIUM="0.0 0.25 0.02 0.30 vibrant"
+# Loadouts mode post-processing (args to process_wal_colors, passed after
+# wal runs). Values borrowed from the fzfub wallpaper script:
+#   light:  wal -l produces the light palette; 0.1 0 0.2 0.1 darkens bg a
+#           little and others a little more (readable, colourful, NOT white).
+#   medium: -0.15 0 0 0.10 = darken bg slightly, small sat boost elsewhere.
+#   dark:   default (no processing).
+PROCESS_LIGHT="0.1 0 0.2 0.1"
+PROCESS_MEDIUM="-0.15 0 0 0.10"
 
 WALL_DIR="$HOME/Pictures/wallpaper"
 LOADOUTS_DIR="$HOME/.config/scripts/loadouts"
@@ -189,7 +188,7 @@ load_loadout() {
   if [ "$src" = theme ] && [ -n "$th" ]; then
     apply_theme "$th" "$mo"
   elif [ -n "$wall" ] && [ -f "$wall" ]; then
-    [ -z "$be" ] && be=wal
+    [ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
     apply "$wall" "$be" "$mo"
     save_wallpaper_settings "$wall" "$be" "$mo"
   fi
