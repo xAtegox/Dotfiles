@@ -34,10 +34,15 @@ QM_SKINS="$HOME/.config/qmmp/skins"
 QM_LIB="$QM_SKINS/loadouts"
 QM_ACTIVE="$QM_SKINS/current.wsz"
 QM_MEMO="$HOME/.config/scripts/loadouts/.qmmp_active"
+FF_DIR="$HOME/.config/fastfetch"
+FF_LIB="$FF_DIR/layouts"
+FF_ACTIVE="$FF_DIR/config.jsonc"
+FF_MEMO="$LOADOUTS_DIR/.ff_active"
 SELF="$(realpath "$0")"
 mkdir -p "$LOADOUTS_DIR"
 mkdir -p "$BANNERS_SUB"
 mkdir -p "$QM_LIB"
+mkdir -p "$FF_LIB"
 
 FZF_COLORS=(
   --color="bg:-1,bg+:#161916,fg:#888880,fg+:#c0c0ba"
@@ -157,8 +162,43 @@ qmmp_activate() {
   fi
   return 0
 }
+# Fastfetch config helpers — "layouts" folder approach, mirrors the banners
+# and qmmp skin pattern. Fastfetch always reads ~/.config/fastfetch/config.jsonc;
+# the extra configs live by name in ~/.config/fastfetch/layouts/. To switch we
+# swap files: the chosen config becomes config.jsonc, and the old config.jsonc
+# goes back into the library under its real name. FF_MEMO records which name
+# is currently active so we can restore it later.
+ff_active_name() {
+  if [ -s "$FF_MEMO" ]; then
+    cat "$FF_MEMO"
+  else
+    # fallback: no loadout activated yet — the active config is the plain default
+    echo ""
+  fi
+}
+ff_activate() {
+  local name="$1" cur
+  [ -n "$name" ] || return 0
+  cur="$(ff_active_name)"
+  [ "$name" = "$cur" ] && [ -f "$FF_ACTIVE" ] && return 0
+  # Park the current config.jsonc back in the library under its remembered
+  # name. If it was never tracked (memo empty), park it as "base" so it's
+  # never lost.
+  if [ -f "$FF_ACTIVE" ]; then
+    local park="${cur:-base}"
+    if [ ! -f "$FF_LIB/$park.jsonc" ]; then
+      cp -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
+    fi
+    mv -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
+  fi
+  if [ -f "$FF_LIB/$name.jsonc" ]; then
+    mv -f "$FF_LIB/$name.jsonc" "$FF_ACTIVE"
+  fi
+  printf '%s' "$name" >"$FF_MEMO"
+  return 0
+}
 write_loadout() {
-  local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8"
+  local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8" ff="$9"
   {
     printf 'source=%s\n' "$src"
     if [ "$src" = theme ]; then
@@ -171,12 +211,13 @@ write_loadout() {
     fi
     printf 'banner=%s\n' "$ban"
     printf 'skin=%s\n' "$skin"
+    printf 'ff=%s\n' "$ff"
   } >"$file"
 }
 load_loadout() {
   local file="$1"
   [ -f "$file" ] || return 1
-  local src wall be mo th ban skin
+  local src wall be mo th ban skin ff
   LOADOUT_SILENT=1
   src="$(cfg_get source "$file")"; [ -z "$src" ] && src=wallpaper
   wall="$(cfg_get wallpaper "$file")"
@@ -185,6 +226,7 @@ load_loadout() {
   th="$(cfg_get theme "$file")"
   ban="$(cfg_get banner "$file")"
   skin="$(cfg_get skin "$file")"
+  ff="$(cfg_get ff "$file")"
   if [ "$src" = theme ] && [ -n "$th" ]; then
     apply_theme "$th" "$mo"
   elif [ -n "$wall" ] && [ -f "$wall" ]; then
@@ -194,6 +236,7 @@ load_loadout() {
   fi
   [ -n "$ban" ] && set_banner "$ban"
   [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
+  [ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
 }
 delete_loadout() {
   local file="$1"
@@ -501,6 +544,29 @@ stage_skin() {
     " [ skin ]  enter pick   C-n next   esc abort " \
     "ctrl-n:accept" "" <<<"$data"
 }
+stage_ff() {
+  local cur="${1:-}" active
+  active="$(ff_active_name)"
+  [ -n "$active" ] && [ "$active" != none ] || active=""
+  local data
+  data="$(
+    {
+      if [ -n "$active" ]; then
+        printf '%s\t%s  [current]\n' "$active" "$active"
+      fi
+      for f in "$FF_LIB"/*.jsonc; do
+        [ -f "$f" ] || continue
+        s="$(basename "$f" .jsonc)"
+        [ "$s" = "$active" ] && continue
+        printf '%s\t%s\n' "$s" "$s"
+      done
+    }
+  )"
+  run_fzf \
+    " Fastfetch config " \
+    " [ fastfetch ]  enter pick   C-n next   esc abort " \
+    "ctrl-n:accept" "" <<<"$data"
+}
 stage_name() {
   local suggest="${1:-}"
   local tmp="/tmp/loadouts_name_$$"
@@ -536,7 +602,7 @@ stage_name() {
 # appending a stage_* function and a call in new_loadout/edit_loadout.
 # ─────────────────────────────────────────────
 new_loadout() {
-  local wall="" src="" be="" mo="" th="" ban="" skin="" name="" res="" file=""
+  local wall="" src="" be="" mo="" th="" ban="" skin="" ff="" name="" res="" file=""
   res="$(stage_wallpaper)" || return 1
   wall="$res"
   res="$(stage_source)" || return 1
@@ -556,6 +622,9 @@ new_loadout() {
   res="$(stage_skin)" || return 1
   skin="$res"
   [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
+  res="$(stage_ff)" || return 1
+  ff="$res"
+  [ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
   while :; do
     name="$(stage_name "")" || return 1
     [ -n "$name" ] && break
@@ -563,7 +632,7 @@ new_loadout() {
   done
   name="${name//\//_}"
   file="$LOADOUTS_DIR/$name.conf"
-  write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin"
+  write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin" "$ff"
   printf '%s' "$file"
 }
 edit_loadout() {
@@ -571,7 +640,7 @@ edit_loadout() {
   [ -f "$file" ] || return 1
   local name
   name="$(basename "$file" .conf)"
-  local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin
+  local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin cur_ff
   local sel res rc wlab changed=0
   cur_src="$(cfg_get source "$file")"; [ -z "$cur_src" ] && cur_src=wallpaper
   cur_wall="$(cfg_get wallpaper "$file")"
@@ -580,6 +649,7 @@ edit_loadout() {
   cur_th="$(cfg_get theme "$file")"
   cur_ban="$(cfg_get banner "$file")"
   cur_skin="$(cfg_get skin "$file")"
+  cur_ff="$(cfg_get ff "$file")"
   while :; do
     wlab="—"
     [ -n "$cur_wall" ] && wlab="$(basename "$cur_wall")"
@@ -597,6 +667,7 @@ edit_loadout() {
         fi
         printf 'banner\tbanner — %s\n' "${cur_ban:-—}"
         printf 'skin\tskin — %s\n' "${cur_skin:-—}"
+        printf 'fastfetch\tfastfetch — %s\n' "${cur_ff:-—}"
       })")"
     rc=$?
     [ "$rc" -ne 0 ] && break
@@ -632,10 +703,15 @@ edit_loadout() {
       cur_skin="$res"
       [ -n "$cur_skin" ] && [ "$cur_skin" != none ] && qmmp_activate "$cur_skin"
       ;;
+    fastfetch)
+      res="$(stage_ff "$cur_ff")" || continue
+      cur_ff="$res"
+      [ -n "$cur_ff" ] && [ "$cur_ff" != none ] && ff_activate "$cur_ff"
+      ;;
     *) break ;;
     esac
     changed=1
-    write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin"
+    write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin" "$cur_ff"
   done
   # return 0 only if something was actually edited (so the caller reloads);
   # pressing esc with no change returns 1 and skips the reload.
@@ -758,6 +834,8 @@ echo "  wallpaper: ${wall:-—}";
 echo "  banner:   ${ban:-—}";
 skn=$(grep "^skin=" "$f" 2>/dev/null | cut -d= -f2-);
 echo "  skin:     ${skn:-—}";
+fff=$(grep "^ff=" "$f" 2>/dev/null | cut -d= -f2-);
+echo "  fastfetch: ${fff:-—}";
 echo;
 if [ -n "$wall" ] && [ -f "$wall" ]; then
   ueberzugpp cmd -s "$SOCKET" -i walpreview -a add \
