@@ -45,36 +45,36 @@ mkdir -p "$QM_LIB"
 mkdir -p "$FF_LIB"
 
 FZF_COLORS=(
-  --color="bg:-1,bg+:#161916,fg:#888880,fg+:#c0c0ba"
-  --color="hl:#6a7d5e,hl+:#8aaa74"
-  --color="border:#333630,preview-border:#333630"
-  --color="prompt:#8aaa74,pointer:#8aaa74,marker:#6a7d5e"
-  --color="input-label:#3a4436,preview-label:#3a4436,label:#3a4436"
-  --color="info:#3a4436,spinner:#8aaa74"
+	--color="bg:-1,bg+:#161916,fg:#888880,fg+:#c0c0ba"
+	--color="hl:#6a7d5e,hl+:#8aaa74"
+	--color="border:#333630,preview-border:#333630"
+	--color="prompt:#8aaa74,pointer:#8aaa74,marker:#6a7d5e"
+	--color="input-label:#3a4436,preview-label:#3a4436,label:#3a4436"
+	--color="info:#3a4436,spinner:#8aaa74"
 )
 # ─────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────
 cfg_get() {
-  awk -F= -v k="$1" '$1==k {sub(/^[^=]*=/,""); print}' "$2"
+	awk -F= -v k="$1" '$1==k {sub(/^[^=]*=/,""); print}' "$2"
 }
 clear_preview() {
-  ueberzugpp cmd -s "$SOCKET" -a remove -i walpreview 2>/dev/null || true
+	ueberzugpp cmd -s "$SOCKET" -a remove -i walpreview 2>/dev/null || true
 }
 # Active banner = the one file directly in $BANNERS_DIR.
 # Anything else in there is parked in $BANNERS_SUB so doom's
 # dashboard picks up exactly the chosen one. Emacs hot-reloads.
 set_banner() {
-  local name="$1"
-  [ -n "$name" ] || return 1
-  if [ -f "$BANNERS_SUB/$name" ]; then
-    mv "$BANNERS_SUB/$name" "$BANNERS_DIR/$name"
-  fi
-  for f in "$BANNERS_DIR"/*.xpm; do
-    [ -f "$f" ] || continue
-    [ "$(basename "$f")" = "$name" ] && continue
-    mv "$f" "$BANNERS_SUB/$(basename "$f")"
-  done
+	local name="$1"
+	[ -n "$name" ] || return 1
+	if [ -f "$BANNERS_SUB/$name" ]; then
+		mv "$BANNERS_SUB/$name" "$BANNERS_DIR/$name"
+	fi
+	for f in "$BANNERS_DIR"/*.xpm; do
+		[ -f "$f" ] || continue
+		[ "$(basename "$f")" = "$name" ] && continue
+		mv "$f" "$BANNERS_SUB/$(basename "$f")"
+	done
 }
 # QMMP skin helpers — "loadouts" folder approach, mirrors the banners
 # pattern. QMMP always points skin_path at a fixed file (current.wsz);
@@ -84,83 +84,83 @@ set_banner() {
 # memory file (QM_MEMO) records which real name is currently active so we
 # can restore it later. QMMP reads the skin at startup, so we restart it.
 qmmp_active_name() {
-  if [ -s "$QM_MEMO" ]; then
-    cat "$QM_MEMO"
-  else
-    # fallback: whatever qmmp.conf currently points at
-    qmmp_conf_skin
-  fi
+	if [ -s "$QM_MEMO" ]; then
+		cat "$QM_MEMO"
+	else
+		# fallback: whatever qmmp.conf currently points at
+		qmmp_conf_skin
+	fi
 }
 qmmp_conf_skin() {
-  [ -f "$QM_CONF" ] || return 0
-  awk -F= '/^\[Skinned\]/{sec=1; next} /^\[/{sec=0} sec && /^skin_path=/{sub(/^skin_path=/,""); print}' "$QM_CONF" |
-    sed 's|.*/||'
+	[ -f "$QM_CONF" ] || return 0
+	awk -F= '/^\[Skinned\]/{sec=1; next} /^\[/{sec=0} sec && /^skin_path=/{sub(/^skin_path=/,""); print}' "$QM_CONF" |
+		sed 's|.*/||'
 }
 # Move every top-level skin into the library, promote the currently
 # configured one to current.wsz, and point qmmp.conf at current.wsz.
 # Runs once (guarded by QM_MEMO existing).
 qmmp_ensure_lib() {
-  mkdir -p "$QM_LIB"
-  [ -f "$QM_MEMO" ] && return 0
-  local active
-  active="$(qmmp_conf_skin)"
-  [ -n "$active" ] || active="Edo_Shikaku.wsz"
-  if [ -f "$QM_SKINS/$active" ] && [ "$active" != "current.wsz" ]; then
-    mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
-  elif [ -f "$QM_ACTIVE" ]; then
-    : # current.wsz already exists
-  else
-    mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
-  fi
-  for f in "$QM_SKINS"/*.wsz; do
-    [ -f "$f" ] || continue
-    [ "$(basename "$f")" = "current.wsz" ] && continue
-    mv -f "$f" "$QM_LIB/$(basename "$f")"
-  done
-  if [ -f "$QM_CONF" ]; then
-    sed -i -e "/^\[Skinned\]/,/^\[/ s|^skin_path=.*|skin_path=$QM_ACTIVE|" "$QM_CONF"
-  fi
-  printf '%s' "$active" >"$QM_MEMO"
+	mkdir -p "$QM_LIB"
+	[ -f "$QM_MEMO" ] && return 0
+	local active
+	active="$(qmmp_conf_skin)"
+	[ -n "$active" ] || active="Edo_Shikaku.wsz"
+	if [ -f "$QM_SKINS/$active" ] && [ "$active" != "current.wsz" ]; then
+		mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
+	elif [ -f "$QM_ACTIVE" ]; then
+		: # current.wsz already exists
+	else
+		mv -f "$QM_SKINS/$active" "$QM_ACTIVE"
+	fi
+	for f in "$QM_SKINS"/*.wsz; do
+		[ -f "$f" ] || continue
+		[ "$(basename "$f")" = "current.wsz" ] && continue
+		mv -f "$f" "$QM_LIB/$(basename "$f")"
+	done
+	if [ -f "$QM_CONF" ]; then
+		sed -i -e "/^\[Skinned\]/,/^\[/ s|^skin_path=.*|skin_path=$QM_ACTIVE|" "$QM_CONF"
+	fi
+	printf '%s' "$active" >"$QM_MEMO"
 }
 # Swap the chosen skin (real name) into place as current.wsz, return the
 # old one to the library, and restart qmmp if it was running.
 qmmp_activate() {
-  local name="$1" cur was_running=0
-  [ -n "$name" ] || return 0
-  qmmp_ensure_lib
-  cur="$(qmmp_active_name)"
-  [ "$name" = "$cur" ] && [ -f "$QM_ACTIVE" ] && return 0
-  # Swap synchronously — it's just two file moves, and doing it inline
-  # prevents a race where a second loadout read the memo mid-swap.
-  if [ -f "$QM_ACTIVE" ] && [ -n "$cur" ] && [ "$cur" != "$name" ]; then
-    # guard: if the old current.wsz isn't already in the library, keep a
-    # copy so we never lose a skin
-    if [ ! -f "$QM_LIB/$cur" ]; then
-      cp -f "$QM_ACTIVE" "$QM_LIB/$cur"
-    fi
-    mv -f "$QM_ACTIVE" "$QM_LIB/$cur"
-  fi
-  if [ -f "$QM_LIB/$name" ]; then
-    mv -f "$QM_LIB/$name" "$QM_ACTIVE"
-  fi
-  printf '%s' "$name" >"$QM_MEMO"
-  # QMMP caches the extracted skin in ~/.cache/qmmp/skinned/ and reuses it
-  # when only current.wsz's CONTENT changes (same filename). So the cache
-  # must be cleared on EVERY swap — even if qmmp isn't running now, the
-  # stale cache would be picked up on the next launch. Then restart qmmp
-  # (detached, so it can never block the picker) only if it's running.
-  rm -rf "$HOME/.cache/qmmp/skinned/skin"
-  if pgrep -x qmmp >/dev/null 2>&1; then
-    (
-      timeout 3 qmmp -q >/dev/null 2>&1
-      sleep 0.3
-      pkill -x qmmp >/dev/null 2>&1
-      sleep 0.3
-      qmmp >/dev/null 2>&1 &
-    ) >/dev/null 2>&1 &
-    disown 2>/dev/null || true
-  fi
-  return 0
+	local name="$1" cur was_running=0
+	[ -n "$name" ] || return 0
+	qmmp_ensure_lib
+	cur="$(qmmp_active_name)"
+	[ "$name" = "$cur" ] && [ -f "$QM_ACTIVE" ] && return 0
+	# Swap synchronously — it's just two file moves, and doing it inline
+	# prevents a race where a second loadout read the memo mid-swap.
+	if [ -f "$QM_ACTIVE" ] && [ -n "$cur" ] && [ "$cur" != "$name" ]; then
+		# guard: if the old current.wsz isn't already in the library, keep a
+		# copy so we never lose a skin
+		if [ ! -f "$QM_LIB/$cur" ]; then
+			cp -f "$QM_ACTIVE" "$QM_LIB/$cur"
+		fi
+		mv -f "$QM_ACTIVE" "$QM_LIB/$cur"
+	fi
+	if [ -f "$QM_LIB/$name" ]; then
+		mv -f "$QM_LIB/$name" "$QM_ACTIVE"
+	fi
+	printf '%s' "$name" >"$QM_MEMO"
+	# QMMP caches the extracted skin in ~/.cache/qmmp/skinned/ and reuses it
+	# when only current.wsz's CONTENT changes (same filename). So the cache
+	# must be cleared on EVERY swap — even if qmmp isn't running now, the
+	# stale cache would be picked up on the next launch. Then restart qmmp
+	# (detached, so it can never block the picker) only if it's running.
+	rm -rf "$HOME/.cache/qmmp/skinned/skin"
+	if pgrep -x qmmp >/dev/null 2>&1; then
+		(
+			timeout 3 qmmp -q >/dev/null 2>&1
+			sleep 0.3
+			pkill -x qmmp >/dev/null 2>&1
+			sleep 0.3
+			qmmp >/dev/null 2>&1 &
+		) >/dev/null 2>&1 &
+		disown 2>/dev/null || true
+	fi
+	return 0
 }
 # Fastfetch config helpers — "layouts" folder approach, mirrors the banners
 # and qmmp skin pattern. Fastfetch always reads ~/.config/fastfetch/config.jsonc;
@@ -169,105 +169,107 @@ qmmp_activate() {
 # goes back into the library under its real name. FF_MEMO records which name
 # is currently active so we can restore it later.
 ff_active_name() {
-  if [ -s "$FF_MEMO" ]; then
-    cat "$FF_MEMO"
-  else
-    # fallback: no loadout activated yet — the active config is the plain default
-    echo ""
-  fi
+	if [ -s "$FF_MEMO" ]; then
+		cat "$FF_MEMO"
+	else
+		# fallback: no loadout activated yet — the active config is the plain default
+		echo ""
+	fi
 }
 ff_activate() {
-  local name="$1" cur
-  [ -n "$name" ] || return 0
-  cur="$(ff_active_name)"
-  [ "$name" = "$cur" ] && [ -f "$FF_ACTIVE" ] && return 0
-  # Park the current config.jsonc back in the library under its remembered
-  # name. If it was never tracked (memo empty), park it as "base" so it's
-  # never lost.
-  if [ -f "$FF_ACTIVE" ]; then
-    local park="${cur:-base}"
-    if [ ! -f "$FF_LIB/$park.jsonc" ]; then
-      cp -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
-    fi
-    mv -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
-  fi
-  if [ -f "$FF_LIB/$name.jsonc" ]; then
-    mv -f "$FF_LIB/$name.jsonc" "$FF_ACTIVE"
-  fi
-  printf '%s' "$name" >"$FF_MEMO"
-  return 0
+	local name="$1" cur
+	[ -n "$name" ] || return 0
+	cur="$(ff_active_name)"
+	[ "$name" = "$cur" ] && [ -f "$FF_ACTIVE" ] && return 0
+	# Park the current config.jsonc back in the library under its remembered
+	# name. If it was never tracked (memo empty), park it as "base" so it's
+	# never lost.
+	if [ -f "$FF_ACTIVE" ]; then
+		local park="${cur:-base}"
+		if [ ! -f "$FF_LIB/$park.jsonc" ]; then
+			cp -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
+		fi
+		mv -f "$FF_ACTIVE" "$FF_LIB/$park.jsonc"
+	fi
+	if [ -f "$FF_LIB/$name.jsonc" ]; then
+		mv -f "$FF_LIB/$name.jsonc" "$FF_ACTIVE"
+	fi
+	printf '%s' "$name" >"$FF_MEMO"
+	return 0
 }
 write_loadout() {
-  local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8" ff="$9"
-  {
-    printf 'source=%s\n' "$src"
-    if [ "$src" = theme ]; then
-      printf 'theme=%s\n' "$th"
-      printf 'mode=dark\n'
-    else
-      printf 'wallpaper=%s\n' "$wall"
-      printf 'backend=%s\n' "$be"
-      printf 'mode=%s\n' "$mo"
-    fi
-    printf 'banner=%s\n' "$ban"
-    printf 'skin=%s\n' "$skin"
-    printf 'ff=%s\n' "$ff"
-  } >"$file"
+	local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8" ff="$9"
+	{
+		printf 'source=%s\n' "$src"
+		if [ "$src" = theme ]; then
+			printf 'theme=%s\n' "$th"
+			printf 'mode=dark\n'
+		else
+			printf 'wallpaper=%s\n' "$wall"
+			printf 'backend=%s\n' "$be"
+			printf 'mode=%s\n' "$mo"
+		fi
+		printf 'banner=%s\n' "$ban"
+		printf 'skin=%s\n' "$skin"
+		printf 'ff=%s\n' "$ff"
+	} >"$file"
 }
 load_loadout() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  local src wall be mo th ban skin ff
-  LOADOUT_SILENT=1
-  src="$(cfg_get source "$file")"; [ -z "$src" ] && src=wallpaper
-  wall="$(cfg_get wallpaper "$file")"
-  be="$(cfg_get backend "$file")"
-  mo="$(cfg_get mode "$file")"; [ -z "$mo" ] && mo=dark
-  th="$(cfg_get theme "$file")"
-  ban="$(cfg_get banner "$file")"
-  skin="$(cfg_get skin "$file")"
-  ff="$(cfg_get ff "$file")"
-  if [ "$src" = theme ] && [ -n "$th" ]; then
-    apply_theme "$th" "$mo"
-  elif [ -n "$wall" ] && [ -f "$wall" ]; then
-    [ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
-    apply "$wall" "$be" "$mo"
-    save_wallpaper_settings "$wall" "$be" "$mo"
-  fi
-  [ -n "$ban" ] && set_banner "$ban"
-  [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
-  [ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
+	local file="$1"
+	[ -f "$file" ] || return 1
+	local src wall be mo th ban skin ff
+	LOADOUT_SILENT=1
+	src="$(cfg_get source "$file")"
+	[ -z "$src" ] && src=wallpaper
+	wall="$(cfg_get wallpaper "$file")"
+	be="$(cfg_get backend "$file")"
+	mo="$(cfg_get mode "$file")"
+	[ -z "$mo" ] && mo=dark
+	th="$(cfg_get theme "$file")"
+	ban="$(cfg_get banner "$file")"
+	skin="$(cfg_get skin "$file")"
+	ff="$(cfg_get ff "$file")"
+	if [ "$src" = theme ] && [ -n "$th" ]; then
+		apply_theme "$th" "$mo"
+	elif [ -n "$wall" ] && [ -f "$wall" ]; then
+		[ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
+		apply "$wall" "$be" "$mo"
+		save_wallpaper_settings "$wall" "$be" "$mo"
+	fi
+	[ -n "$ban" ] && set_banner "$ban"
+	[ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
+	[ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
 }
 delete_loadout() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  rm -f "$file"
-  notify-send \
-    "Loadout" \
-    "deleted $(basename "$file" .conf)" \
-    -t 1500
+	local file="$1"
+	[ -f "$file" ] || return 1
+	rm -f "$file"
+	notify-send \
+		"Loadout" \
+		"deleted $(basename "$file" .conf)" \
+		-t 1500
 }
 # ─────────────────────────────────────────────
 # List mode
 # ─────────────────────────────────────────────
 print_loadout_list() {
-  find -L "$LOADOUTS_DIR" -maxdepth 1 -type f -name '*.conf' 2>/dev/null |
-    sort |
-    while IFS= read -r f; do
-      printf '%s\t%s\n' "$f" "$(basename "$f" .conf)"
-    done
+	find -L "$LOADOUTS_DIR" -maxdepth 1 -type f -name '*.conf' 2>/dev/null |
+		sort |
+		while IFS= read -r f; do
+			printf '%s\t%s\n' "$f" "$(basename "$f" .conf)"
+		done
 }
 if [[ "$1" == "--list-loadouts" ]]; then
-  print_loadout_list
-  exit 0
+	print_loadout_list
+	exit 0
 fi
 # ─────────────────────────────────────────────
 # Theme preview (live-check while picking)
 # ─────────────────────────────────────────────
 if [[ "$1" == "--preview-theme" ]]; then
-  wal --theme "$2" -t -n -q 2>/dev/null
-  refresh_terminal
-  exit 0
+	wal --theme "$2" -t -n -q 2>/dev/null
+	refresh_terminal
+	exit 0
 fi
 # ─────────────────────────────────────────────
 # Generic fzf stage picker
@@ -280,54 +282,54 @@ fi
 # Returns 0 + the value, 1 if nothing picked, 2 if aborted.
 # ─────────────────────────────────────────────
 run_fzf() {
-  local label="$1" plabel="$2" binds="$3" preview="$4" data
-  data="$(cat)"
-  clear_preview
-  local -a fzfargs=(
-    --no-sort --reverse --style=full --border=sharp
-    --border-label="$label" --border-label-pos=2
-    --no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●"
-    --input-label=" " --preview-label="$plabel" --preview-border=sharp
-    --info=right --delimiter=$'\t' --with-nth=2
-    "${FZF_COLORS[@]}"
-    --bind="esc:become(echo __BACK__),${binds}"
-  )
-  if [ -n "$preview" ]; then
-    fzfargs+=(--preview="$preview" --preview-window="right:48%:nowrap")
-  fi
-  local out
-  out="$(fzf "${fzfargs[@]}" <<<"$data")"
-  case "$out" in
-  __BACK__) return 2 ;;
-  "") return 1 ;;
-  esac
-  printf '%s' "$out" | cut -f1
+	local label="$1" plabel="$2" binds="$3" preview="$4" data
+	data="$(cat)"
+	clear_preview
+	local -a fzfargs=(
+		--no-sort --reverse --style=full --border=sharp
+		--border-label="$label" --border-label-pos=2
+		--no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●"
+		--input-label=" " --preview-label="$plabel" --preview-border=sharp
+		--info=right --delimiter=$'\t' --with-nth=2
+		"${FZF_COLORS[@]}"
+		--bind="esc:become(echo __BACK__),${binds}"
+	)
+	if [ -n "$preview" ]; then
+		fzfargs+=(--preview="$preview" --preview-window="right:48%:nowrap")
+	fi
+	local out
+	out="$(fzf "${fzfargs[@]}" <<<"$data")"
+	case "$out" in
+	__BACK__) return 2 ;;
+	"") return 1 ;;
+	esac
+	printf '%s' "$out" | cut -f1
 }
 # ─────────────────────────────────────────────
 # Stages
 # ─────────────────────────────────────────────
 stage_wallpaper() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      [ -n "$cur" ] && [ -f "$cur" ] &&
-        printf '%s\t%s\n' "$cur" "$(basename "$cur")"
-      find -L "$WALL_DIR" -type f \( \
-        -iname '*.jpg' -o -iname '*.png' -o -iname '*.jpeg' \
-        \) 2>/dev/null |
-        sort |
-        while IFS= read -r f; do
-          [ "$f" = "$cur" ] && continue
-          printf '%s\t%s\n' "$f" "$(basename "$f")"
-        done
-    }
-  )"
-  run_fzf \
-    " Wallpaper " \
-    " [ wallpaper ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" \
-    'file={1};
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			[ -n "$cur" ] && [ -f "$cur" ] &&
+				printf '%s\t%s\n' "$cur" "$(basename "$cur")"
+			find -L "$WALL_DIR" -type f \( \
+				-iname '*.jpg' -o -iname '*.png' -o -iname '*.jpeg' \
+				\) 2>/dev/null |
+				sort |
+				while IFS= read -r f; do
+					[ "$f" = "$cur" ] && continue
+					printf '%s\t%s\n' "$f" "$(basename "$f")"
+				done
+		}
+	)"
+	run_fzf \
+		" Wallpaper " \
+		" [ wallpaper ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" \
+		'file={1};
 ueberzugpp cmd \
     -s "$SOCKET" \
     -i walpreview \
@@ -339,87 +341,87 @@ ueberzugpp cmd \
     -f "$file" \
     2>/dev/null
 ' \
-    <<<"$data"
+		<<<"$data"
 }
 stage_source() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      [ "$cur" = wallpaper ] &&
-        printf 'wallpaper\twallpaper — pywal from the image\n'
-      [ "$cur" = theme ] &&
-        printf 'theme\tcustom theme — a pywal scheme\n'
-      [ "$cur" != wallpaper ] &&
-        printf 'wallpaper\twallpaper — pywal from the image\n'
-      [ "$cur" != theme ] &&
-        printf 'theme\tcustom theme — a pywal scheme\n'
-    }
-  )"
-  run_fzf \
-    " Source " \
-    " [ source ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" "" <<<"$data"
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			[ "$cur" = wallpaper ] &&
+				printf 'wallpaper\twallpaper — pywal from the image\n'
+			[ "$cur" = theme ] &&
+				printf 'theme\tcustom theme — a pywal scheme\n'
+			[ "$cur" != wallpaper ] &&
+				printf 'wallpaper\twallpaper — pywal from the image\n'
+			[ "$cur" != theme ] &&
+				printf 'theme\tcustom theme — a pywal scheme\n'
+		}
+	)"
+	run_fzf \
+		" Source " \
+		" [ source ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" "" <<<"$data"
 }
 stage_backend() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      [ -n "$cur" ] && printf '%s\t%s\n' "$cur" "$cur"
-      for b in "${BACKENDS[@]}"; do
-        [ "$b" = "$cur" ] && continue
-        printf '%s\t%s\n' "$b" "$b"
-      done
-    }
-  )"
-  run_fzf \
-    " Backend " \
-    " [ backend ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" "" <<<"$data"
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			[ -n "$cur" ] && printf '%s\t%s\n' "$cur" "$cur"
+			for b in "${BACKENDS[@]}"; do
+				[ "$b" = "$cur" ] && continue
+				printf '%s\t%s\n' "$b" "$b"
+			done
+		}
+	)"
+	run_fzf \
+		" Backend " \
+		" [ backend ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" "" <<<"$data"
 }
 stage_mode() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      [ "$cur" = dark ] && printf 'dark\tdark — default\n'
-      [ "$cur" = medium ] &&
-        printf 'medium\tmedium — a little more colourful\n'
-      [ "$cur" = light ] &&
-        printf 'light\tlight — light-mode pywal palette\n'
-      [ "$cur" != dark ] && printf 'dark\tdark — default\n'
-      [ "$cur" != medium ] &&
-        printf 'medium\tmedium — a little more colourful\n'
-      [ "$cur" != light ] &&
-        printf 'light\tlight — light-mode pywal palette\n'
-    }
-  )"
-  run_fzf \
-    " Mode " \
-    " [ mode ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" "" <<<"$data"
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			[ "$cur" = dark ] && printf 'dark\tdark — default\n'
+			[ "$cur" = medium ] &&
+				printf 'medium\tmedium — a little more colourful\n'
+			[ "$cur" = light ] &&
+				printf 'light\tlight — light-mode pywal palette\n'
+			[ "$cur" != dark ] && printf 'dark\tdark — default\n'
+			[ "$cur" != medium ] &&
+				printf 'medium\tmedium — a little more colourful\n'
+			[ "$cur" != light ] &&
+				printf 'light\tlight — light-mode pywal palette\n'
+		}
+	)"
+	run_fzf \
+		" Mode " \
+		" [ mode ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" "" <<<"$data"
 }
 stage_theme() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      [ -n "$cur" ] && printf '%s\t%s\n' "$cur" "$cur"
-      wal --theme 2>/dev/null |
-        grep -oP '(?<=- )[\w\.-]+' |
-        sort |
-        while IFS= read -r t; do
-          [ "$t" = "$cur" ] && continue
-          printf '%s\t%s\n' "$t" "$t"
-        done
-    }
-  )"
-  run_fzf \
-    " Theme " \
-    " [ theme ]  enter preview   C-n next   esc abort " \
-    "enter:execute-silent(\"$SELF\" --preview-theme {1}),ctrl-n:accept" \
-    "
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			[ -n "$cur" ] && printf '%s\t%s\n' "$cur" "$cur"
+			wal --theme 2>/dev/null |
+				grep -oP '(?<=- )[\w\.-]+' |
+				sort |
+				while IFS= read -r t; do
+					[ "$t" = "$cur" ] && continue
+					printf '%s\t%s\n' "$t" "$t"
+				done
+		}
+	)"
+	run_fzf \
+		" Theme " \
+		" [ theme ]  enter preview   C-n next   esc abort " \
+		"enter:execute-silent(\"$SELF\" --preview-theme {1}),ctrl-n:accept" \
+		"
 theme={1};
 wal --theme \"\$theme\" -t -n -q 2>/dev/null;
 python3 -c \"
@@ -473,38 +475,38 @@ except Exception:
     print('no colors.json yet')
 \" 2>/dev/null
 " \
-    <<<"$data"
+		<<<"$data"
 }
 stage_banner() {
-  local cur="${1:-}"
-  local data
-  data="$(
-    {
-      if [ -n "$cur" ]; then
-        [ -f "$BANNERS_DIR/$cur" ] &&
-          printf '%s\t%s  [active]\n' "$cur" "$cur"
-        [ -f "$BANNERS_SUB/$cur" ] &&
-          printf '%s\t%s\n' "$cur" "$cur"
-      fi
-      for f in "$BANNERS_DIR"/*.xpm; do
-        [ -f "$f" ] || continue
-        b="$(basename "$f")"
-        [ "$b" = "$cur" ] && continue
-        printf '%s\t%s  [active]\n' "$b" "$b"
-      done
-      for f in "$BANNERS_SUB"/*.xpm; do
-        [ -f "$f" ] || continue
-        b="$(basename "$f")"
-        [ "$b" = "$cur" ] && continue
-        printf '%s\t%s\n' "$b" "$b"
-      done
-    }
-  )"
-  run_fzf \
-    " Emacs banner " \
-    " [ banner ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" \
-    'f=$BANNERS_DIR/{1};
+	local cur="${1:-}"
+	local data
+	data="$(
+		{
+			if [ -n "$cur" ]; then
+				[ -f "$BANNERS_DIR/$cur" ] &&
+					printf '%s\t%s  [active]\n' "$cur" "$cur"
+				[ -f "$BANNERS_SUB/$cur" ] &&
+					printf '%s\t%s\n' "$cur" "$cur"
+			fi
+			for f in "$BANNERS_DIR"/*.xpm; do
+				[ -f "$f" ] || continue
+				b="$(basename "$f")"
+				[ "$b" = "$cur" ] && continue
+				printf '%s\t%s  [active]\n' "$b" "$b"
+			done
+			for f in "$BANNERS_SUB"/*.xpm; do
+				[ -f "$f" ] || continue
+				b="$(basename "$f")"
+				[ "$b" = "$cur" ] && continue
+				printf '%s\t%s\n' "$b" "$b"
+			done
+		}
+	)"
+	run_fzf \
+		" Emacs banner " \
+		" [ banner ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" \
+		'f=$BANNERS_DIR/{1};
 [ -f "$f" ] || f=$BANNERS_SUB/{1};
 ueberzugpp cmd \
     -s "$SOCKET" \
@@ -517,82 +519,82 @@ ueberzugpp cmd \
     -f "$f" \
     2>/dev/null
 ' \
-    <<<"$data"
+		<<<"$data"
 }
 stage_skin() {
-  local cur="${1:-}" active
-  qmmp_ensure_lib
-  active="$(qmmp_active_name)"
-  [ -n "$active" ] && [ "$active" != none ] || active=""
-  local data
-  data="$(
-    {
-      printf 'none\tkeep current (no change)\n'
-      if [ -n "$active" ]; then
-        printf '%s\t%s  [current]\n' "$active" "$active"
-      fi
-      for f in "$QM_LIB"/*.wsz; do
-        [ -f "$f" ] || continue
-        s="$(basename "$f")"
-        [ "$s" = "$active" ] && continue
-        printf '%s\t%s\n' "$s" "$s"
-      done
-    }
-  )"
-  run_fzf \
-    " QMMP skin " \
-    " [ skin ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" "" <<<"$data"
+	local cur="${1:-}" active
+	qmmp_ensure_lib
+	active="$(qmmp_active_name)"
+	[ -n "$active" ] && [ "$active" != none ] || active=""
+	local data
+	data="$(
+		{
+			printf 'none\tkeep current (no change)\n'
+			if [ -n "$active" ]; then
+				printf '%s\t%s  [current]\n' "$active" "$active"
+			fi
+			for f in "$QM_LIB"/*.wsz; do
+				[ -f "$f" ] || continue
+				s="$(basename "$f")"
+				[ "$s" = "$active" ] && continue
+				printf '%s\t%s\n' "$s" "$s"
+			done
+		}
+	)"
+	run_fzf \
+		" QMMP skin " \
+		" [ skin ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" "" <<<"$data"
 }
 stage_ff() {
-  local cur="${1:-}" active
-  active="$(ff_active_name)"
-  [ -n "$active" ] && [ "$active" != none ] || active=""
-  local data
-  data="$(
-    {
-      if [ -n "$active" ]; then
-        printf '%s\t%s  [current]\n' "$active" "$active"
-      fi
-      for f in "$FF_LIB"/*.jsonc; do
-        [ -f "$f" ] || continue
-        s="$(basename "$f" .jsonc)"
-        [ "$s" = "$active" ] && continue
-        printf '%s\t%s\n' "$s" "$s"
-      done
-    }
-  )"
-  run_fzf \
-    " Fastfetch config " \
-    " [ fastfetch ]  enter pick   C-n next   esc abort " \
-    "ctrl-n:accept" "" <<<"$data"
+	local cur="${1:-}" active
+	active="$(ff_active_name)"
+	[ -n "$active" ] && [ "$active" != none ] || active=""
+	local data
+	data="$(
+		{
+			if [ -n "$active" ]; then
+				printf '%s\t%s  [current]\n' "$active" "$active"
+			fi
+			for f in "$FF_LIB"/*.jsonc; do
+				[ -f "$f" ] || continue
+				s="$(basename "$f" .jsonc)"
+				[ "$s" = "$active" ] && continue
+				printf '%s\t%s\n' "$s" "$s"
+			done
+		}
+	)"
+	run_fzf \
+		" Fastfetch config " \
+		" [ fastfetch ]  enter pick   C-n next   esc abort " \
+		"ctrl-n:accept" "" <<<"$data"
 }
 stage_name() {
-  local suggest="${1:-}"
-  local tmp="/tmp/loadouts_name_$$"
-  : >"$tmp"
-  local out
-  out="$(
-    fzf \
-      --query="$suggest" \
-      --no-sort --reverse --style=full --border=sharp \
-      --border-label=" Name " --border-label-pos=2 \
-      --no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●" \
-      --input-label=" name " --preview-border=sharp --info=right \
-      "${FZF_COLORS[@]}" \
-      --bind="enter:execute-silent(printf %s {q} >$tmp)+accept" \
-      --bind="esc:become(echo __BACK__)" \
-      </dev/null
-  )"
-  case "$out" in
-  __BACK__) return 2 ;;
-  esac
-  local name
-  name="$(cat "$tmp" 2>/dev/null)"
-  name="${name#"${name%%[![:space:]]*}"}"
-  name="${name%"${name##*[![:space:]]}"}"
-  [ -n "$name" ] || return 1
-  printf '%s' "$name"
+	local suggest="${1:-}"
+	local tmp="/tmp/loadouts_name_$$"
+	: >"$tmp"
+	local out
+	out="$(
+		fzf \
+			--query="$suggest" \
+			--no-sort --reverse --style=full --border=sharp \
+			--border-label=" Name " --border-label-pos=2 \
+			--no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●" \
+			--input-label=" name " --preview-border=sharp --info=right \
+			"${FZF_COLORS[@]}" \
+			--bind="enter:execute-silent(printf %s {q} >$tmp)+accept" \
+			--bind="esc:become(echo __BACK__)" \
+			</dev/null
+	)"
+	case "$out" in
+	__BACK__) return 2 ;;
+	esac
+	local name
+	name="$(cat "$tmp" 2>/dev/null)"
+	name="${name#"${name%%[![:space:]]*}"}"
+	name="${name%"${name##*[![:space:]]}"}"
+	[ -n "$name" ] || return 1
+	printf '%s' "$name"
 }
 # ─────────────────────────────────────────────
 # Create / edit flow
@@ -602,173 +604,175 @@ stage_name() {
 # appending a stage_* function and a call in new_loadout/edit_loadout.
 # ─────────────────────────────────────────────
 new_loadout() {
-  local wall="" src="" be="" mo="" th="" ban="" skin="" ff="" name="" res="" file=""
-  res="$(stage_wallpaper)" || return 1
-  wall="$res"
-  res="$(stage_source)" || return 1
-  src="$res"
-  if [ "$src" = theme ]; then
-    res="$(stage_theme)" || return 1
-    th="$res"
-  else
-    res="$(stage_backend)" || return 1
-    be="$res"
-    res="$(stage_mode)" || return 1
-    mo="$res"
-  fi
-  res="$(stage_banner)" || return 1
-  ban="$res"
-  set_banner "$ban"
-  res="$(stage_skin)" || return 1
-  skin="$res"
-  [ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
-  res="$(stage_ff)" || return 1
-  ff="$res"
-  [ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
-  while :; do
-    name="$(stage_name "")" || return 1
-    [ -n "$name" ] && break
-    notify-send "Loadout" "name can't be empty" -t 1200
-  done
-  name="${name//\//_}"
-  file="$LOADOUTS_DIR/$name.conf"
-  write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin" "$ff"
-  printf '%s' "$file"
+	local wall="" src="" be="" mo="" th="" ban="" skin="" ff="" name="" res="" file=""
+	res="$(stage_wallpaper)" || return 1
+	wall="$res"
+	res="$(stage_source)" || return 1
+	src="$res"
+	if [ "$src" = theme ]; then
+		res="$(stage_theme)" || return 1
+		th="$res"
+	else
+		res="$(stage_backend)" || return 1
+		be="$res"
+		res="$(stage_mode)" || return 1
+		mo="$res"
+	fi
+	res="$(stage_banner)" || return 1
+	ban="$res"
+	set_banner "$ban"
+	res="$(stage_skin)" || return 1
+	skin="$res"
+	[ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
+	res="$(stage_ff)" || return 1
+	ff="$res"
+	[ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
+	while :; do
+		name="$(stage_name "")" || return 1
+		[ -n "$name" ] && break
+		notify-send "Loadout" "name can't be empty" -t 1200
+	done
+	name="${name//\//_}"
+	file="$LOADOUTS_DIR/$name.conf"
+	write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin" "$ff"
+	printf '%s' "$file"
 }
 edit_loadout() {
-  local file="$1"
-  [ -f "$file" ] || return 1
-  local name
-  name="$(basename "$file" .conf)"
-  local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin cur_ff
-  local sel res rc wlab changed=0
-  cur_src="$(cfg_get source "$file")"; [ -z "$cur_src" ] && cur_src=wallpaper
-  cur_wall="$(cfg_get wallpaper "$file")"
-  cur_be="$(cfg_get backend "$file")"
-  cur_mo="$(cfg_get mode "$file")"; [ -z "$cur_mo" ] && cur_mo=dark
-  cur_th="$(cfg_get theme "$file")"
-  cur_ban="$(cfg_get banner "$file")"
-  cur_skin="$(cfg_get skin "$file")"
-  cur_ff="$(cfg_get ff "$file")"
-  while :; do
-    wlab="—"
-    [ -n "$cur_wall" ] && wlab="$(basename "$cur_wall")"
-    sel="$(run_fzf \
-      " Edit $name " \
-      " [ edit ]  enter pick   esc done " \
-      "enter:accept" "" <<<"$({
-        printf 'source\tsource — %s\n' "$cur_src"
-        printf 'wallpaper\twallpaper — %s\n' "$wlab"
-        if [ "$cur_src" = theme ]; then
-          printf 'theme\ttheme — %s\n' "${cur_th:-—}"
-        else
-          printf 'backend\tbackend — %s\n' "${cur_be:-—}"
-          printf 'mode\tmode — %s\n' "$cur_mo"
-        fi
-        printf 'banner\tbanner — %s\n' "${cur_ban:-—}"
-        printf 'skin\tskin — %s\n' "${cur_skin:-—}"
-        printf 'fastfetch\tfastfetch — %s\n' "${cur_ff:-—}"
-      })")"
-    rc=$?
-    [ "$rc" -ne 0 ] && break
-    [ -z "$sel" ] && break
-    case "$sel" in
-    wallpaper)
-      res="$(stage_wallpaper "$cur_wall")" || continue
-      cur_wall="$res"
-      ;;
-    source)
-      res="$(stage_source "$cur_src")" || continue
-      cur_src="$res"
-      ;;
-    backend)
-      res="$(stage_backend "$cur_be")" || continue
-      cur_be="$res"
-      ;;
-    mode)
-      res="$(stage_mode "$cur_mo")" || continue
-      cur_mo="$res"
-      ;;
-    theme)
-      res="$(stage_theme "$cur_th")" || continue
-      cur_th="$res"
-      ;;
-    banner)
-      res="$(stage_banner "$cur_ban")" || continue
-      cur_ban="$res"
-      set_banner "$cur_ban"
-      ;;
-    skin)
-      res="$(stage_skin "$cur_skin")" || continue
-      cur_skin="$res"
-      [ -n "$cur_skin" ] && [ "$cur_skin" != none ] && qmmp_activate "$cur_skin"
-      ;;
-    fastfetch)
-      res="$(stage_ff "$cur_ff")" || continue
-      cur_ff="$res"
-      [ -n "$cur_ff" ] && [ "$cur_ff" != none ] && ff_activate "$cur_ff"
-      ;;
-    *) break ;;
-    esac
-    changed=1
-    write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin" "$cur_ff"
-  done
-  # return 0 only if something was actually edited (so the caller reloads);
-  # pressing esc with no change returns 1 and skips the reload.
-  [ "$changed" = 1 ]
+	local file="$1"
+	[ -f "$file" ] || return 1
+	local name
+	name="$(basename "$file" .conf)"
+	local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin cur_ff
+	local sel res rc wlab changed=0
+	cur_src="$(cfg_get source "$file")"
+	[ -z "$cur_src" ] && cur_src=wallpaper
+	cur_wall="$(cfg_get wallpaper "$file")"
+	cur_be="$(cfg_get backend "$file")"
+	cur_mo="$(cfg_get mode "$file")"
+	[ -z "$cur_mo" ] && cur_mo=dark
+	cur_th="$(cfg_get theme "$file")"
+	cur_ban="$(cfg_get banner "$file")"
+	cur_skin="$(cfg_get skin "$file")"
+	cur_ff="$(cfg_get ff "$file")"
+	while :; do
+		wlab="—"
+		[ -n "$cur_wall" ] && wlab="$(basename "$cur_wall")"
+		sel="$(run_fzf \
+			" Edit $name " \
+			" [ edit ]  enter pick   esc done " \
+			"enter:accept" "" <<<"$({
+				printf 'source\tsource — %s\n' "$cur_src"
+				printf 'wallpaper\twallpaper — %s\n' "$wlab"
+				if [ "$cur_src" = theme ]; then
+					printf 'theme\ttheme — %s\n' "${cur_th:-—}"
+				else
+					printf 'backend\tbackend — %s\n' "${cur_be:-—}"
+					printf 'mode\tmode — %s\n' "$cur_mo"
+				fi
+				printf 'banner\tbanner — %s\n' "${cur_ban:-—}"
+				printf 'skin\tskin — %s\n' "${cur_skin:-—}"
+				printf 'fastfetch\tfastfetch — %s\n' "${cur_ff:-—}"
+			})")"
+		rc=$?
+		[ "$rc" -ne 0 ] && break
+		[ -z "$sel" ] && break
+		case "$sel" in
+		wallpaper)
+			res="$(stage_wallpaper "$cur_wall")" || continue
+			cur_wall="$res"
+			;;
+		source)
+			res="$(stage_source "$cur_src")" || continue
+			cur_src="$res"
+			;;
+		backend)
+			res="$(stage_backend "$cur_be")" || continue
+			cur_be="$res"
+			;;
+		mode)
+			res="$(stage_mode "$cur_mo")" || continue
+			cur_mo="$res"
+			;;
+		theme)
+			res="$(stage_theme "$cur_th")" || continue
+			cur_th="$res"
+			;;
+		banner)
+			res="$(stage_banner "$cur_ban")" || continue
+			cur_ban="$res"
+			set_banner "$cur_ban"
+			;;
+		skin)
+			res="$(stage_skin "$cur_skin")" || continue
+			cur_skin="$res"
+			[ -n "$cur_skin" ] && [ "$cur_skin" != none ] && qmmp_activate "$cur_skin"
+			;;
+		fastfetch)
+			res="$(stage_ff "$cur_ff")" || continue
+			cur_ff="$res"
+			[ -n "$cur_ff" ] && [ "$cur_ff" != none ] && ff_activate "$cur_ff"
+			;;
+		*) break ;;
+		esac
+		changed=1
+		write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin" "$cur_ff"
+	done
+	# return 0 only if something was actually edited (so the caller reloads);
+	# pressing esc with no change returns 1 and skips the reload.
+	[ "$changed" = 1 ]
 }
 # ─────────────────────────────────────────────
 # Spawn kitty (smaller than gif-test, less tall)
 # ─────────────────────────────────────────────
 if [[ "$1" != "--inside" ]]; then
-  read -r SCREEN_W SCREEN_H < <(
-    xrandr --current 2>/dev/null |
-      grep ' connected primary' |
-      grep -oP '\d+x\d+' |
-      head -1 |
-      tr 'x' ' '
-  )
-  [ -z "$SCREEN_W" ] && SCREEN_W=1920
-  [ -z "$SCREEN_H" ] && SCREEN_H=1080
-  FONT_W=8
-  FONT_H=16
-  COLS=$((SCREEN_W * 58 / 100 / FONT_W))
-  ROWS=$((SCREEN_H * 35 / 100 / FONT_H))
-  [ "$COLS" -lt 80 ] && COLS=80
-  [ "$ROWS" -lt 12 ] && ROWS=12
-  POS_X=$(((SCREEN_W - COLS * FONT_W) / 2))
-  POS_Y=$(((SCREEN_H - ROWS * FONT_H) / 2))
-  WAL_SEQ="$HOME/.cache/wal/sequences"
-  WAL_KITTY="$HOME/.cache/wal/colors-kitty.conf"
-  KITTY_CONF="/tmp/loadouts_kitty_$$.conf"
-  {
-    printf '# wal colors\n'
-    [ -f "$WAL_KITTY" ] &&
-      cat "$WAL_KITTY"
-    printf 'font_size 10\n'
-    printf 'confirm_os_window_close 0\n'
-    printf 'initial_window_width %sc\n' "$COLS"
-    printf 'initial_window_height %sc\n' "$ROWS"
-    printf 'remember_window_size no\n'
-    printf 'placement_strategy top-left\n'
-    printf 'window_padding_width 5\n'
-    printf 'window_margin_width 0\n'
-  } >"$KITTY_CONF"
-  LAUNCHER="/tmp/loadouts_$$.sh"
-  {
-    printf '#!/usr/bin/env bash\n'
-    if [ -f "$WAL_SEQ" ]; then
-      printf 'cat "%s" 2>/dev/null\n' "$WAL_SEQ"
-    fi
-    printf 'exec "%s" --inside\n' "$SELF"
-  } >"$LAUNCHER"
-  chmod +x "$LAUNCHER"
-  exec kitty \
-    --class "loadouts" \
-    --title "Loadouts" \
-    --position "${POS_X}x${POS_Y}" \
-    --config "$KITTY_CONF" \
-    -e "$LAUNCHER"
+	read -r SCREEN_W SCREEN_H < <(
+		xrandr --current 2>/dev/null |
+			grep ' connected primary' |
+			grep -oP '\d+x\d+' |
+			head -1 |
+			tr 'x' ' '
+	)
+	[ -z "$SCREEN_W" ] && SCREEN_W=1920
+	[ -z "$SCREEN_H" ] && SCREEN_H=1080
+	FONT_W=8
+	FONT_H=16
+	COLS=$((SCREEN_W * 58 / 100 / FONT_W))
+	ROWS=$((SCREEN_H * 35 / 100 / FONT_H))
+	[ "$COLS" -lt 80 ] && COLS=80
+	[ "$ROWS" -lt 12 ] && ROWS=12
+	POS_X=$(((SCREEN_W - COLS * FONT_W) / 2))
+	POS_Y=$(((SCREEN_H - ROWS * FONT_H) / 2))
+	WAL_SEQ="$HOME/.cache/wal/sequences"
+	WAL_KITTY="$HOME/.cache/wal/colors-kitty.conf"
+	KITTY_CONF="/tmp/loadouts_kitty_$$.conf"
+	{
+		printf '# wal colors\n'
+		[ -f "$WAL_KITTY" ] &&
+			cat "$WAL_KITTY"
+		printf 'font_size 10\n'
+		printf 'confirm_os_window_close 0\n'
+		printf 'initial_window_width %sc\n' "$COLS"
+		printf 'initial_window_height %sc\n' "$ROWS"
+		printf 'remember_window_size no\n'
+		printf 'placement_strategy top-left\n'
+		printf 'window_padding_width 5\n'
+		printf 'window_margin_width 0\n'
+	} >"$KITTY_CONF"
+	LAUNCHER="/tmp/loadouts_$$.sh"
+	{
+		printf '#!/usr/bin/env bash\n'
+		if [ -f "$WAL_SEQ" ]; then
+			printf 'cat "%s" 2>/dev/null\n' "$WAL_SEQ"
+		fi
+		printf 'exec "%s" --inside\n' "$SELF"
+	} >"$LAUNCHER"
+	chmod +x "$LAUNCHER"
+	exec kitty \
+		--class "loadouts" \
+		--title "Loadouts" \
+		--position "${POS_X}x${POS_Y}" \
+		--config "$KITTY_CONF" \
+		-e "$LAUNCHER"
 fi
 shift
 # ─────────────────────────────────────────────
@@ -776,48 +780,48 @@ shift
 # ─────────────────────────────────────────────
 UB_PID_FILE="/tmp/.loadouts_$$"
 cleanup() {
-  if [ -n "${SOCKET:-}" ]; then
-    ueberzugpp cmd \
-      -s "$SOCKET" \
-      -a exit \
-      2>/dev/null || true
-  fi
-  rm -f \
-    "$UB_PID_FILE" \
-    /tmp/loadouts_*.sh \
-    /tmp/loadouts_kitty_*.conf \
-    /tmp/loadouts_name_$$ \
-    2>/dev/null
+	if [ -n "${SOCKET:-}" ]; then
+		ueberzugpp cmd \
+			-s "$SOCKET" \
+			-a exit \
+			2>/dev/null || true
+	fi
+	rm -f \
+		"$UB_PID_FILE" \
+		/tmp/loadouts_*.sh \
+		/tmp/loadouts_kitty_*.conf \
+		/tmp/loadouts_name_$$ \
+		2>/dev/null
 }
 trap cleanup EXIT HUP INT QUIT TERM
 ueberzugpp layer \
-  --no-stdin \
-  --silent \
-  --pid-file "$UB_PID_FILE" \
-  2>/dev/null
+	--no-stdin \
+	--silent \
+	--pid-file "$UB_PID_FILE" \
+	2>/dev/null
 UB_PID="$(cat "$UB_PID_FILE" 2>/dev/null)"
 if [ -z "$UB_PID" ]; then
-  echo "ERROR: ueberzugpp failed to start" >&2
-  exit 1
+	echo "ERROR: ueberzugpp failed to start" >&2
+	exit 1
 fi
 export SOCKET="/tmp/ueberzugpp-${UB_PID}.socket"
 # ─────────────────────────────────────────────
 # Main menu
 # ─────────────────────────────────────────────
 while true; do
-  clear_preview
-  RES="$(
-    "$SELF" --list-loadouts |
-      fzf \
-        --no-sort --reverse --style=full --border=sharp \
-        --border-label=" Loadouts " --border-label-pos=2 \
-        --no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●" \
-        --input-label=" " \
-        --preview-label=" C-c create   C-e edit   C-l load   C-d delete " \
-        --preview-border=sharp --info=right \
-        --delimiter=$'\t' --with-nth=2 \
-        "${FZF_COLORS[@]}" \
-        --preview='
+	clear_preview
+	RES="$(
+		"$SELF" --list-loadouts |
+			fzf \
+				--no-sort --reverse --style=full --border=sharp \
+				--border-label=" Loadouts " --border-label-pos=2 \
+				--no-scrollbar --padding="0,0" --prompt=" " --pointer="▌" --marker="●" \
+				--input-label=" " \
+				--preview-label=" C-c create   C-e edit   C-l load   C-d delete " \
+				--preview-border=sharp --info=right \
+				--delimiter=$'\t' --with-nth=2 \
+				"${FZF_COLORS[@]}" \
+				--preview='
 f={1};
 src=$(grep "^source=" "$f" 2>/dev/null | cut -d= -f2-);
 [ -z "$src" ] && src=wallpaper;
@@ -844,42 +848,42 @@ if [ -n "$wall" ] && [ -f "$wall" ]; then
     --max-width 46 --max-height 10 -f "$wall" 2>/dev/null;
 fi
 ' \
-        --preview-window="right:48%:nowrap" \
-        --bind="ctrl-c:become(echo __CREATE__)" \
-        --bind="ctrl-e:become(echo __EDIT__ {1})" \
-        --bind="ctrl-l:become(echo __LOAD__ {1})" \
-        --bind="ctrl-d:become(echo __DELETE__ {1})" \
-        --bind="enter:become(echo __LOAD__ {1})" \
-        --bind="esc:become(echo __QUIT__)"
-  )"
-  case "$RES" in
-  "" | __QUIT__)
-    break
-    ;;
-  __CREATE__)
-    F="$(new_loadout)"
-    if [ -n "$F" ] && [ -f "$F" ]; then
-      load_loadout "$F"
-      notify-send \
-        "Loadout" \
-        "created $(basename "$F" .conf)" \
-        -t 2000
-    fi
-    ;;
-  __EDIT__*)
-    F="${RES#__EDIT__ }"
-    if [ -n "$F" ]; then
-      edit_loadout "$F" && load_loadout "$F"
-    fi
-    ;;
-  __LOAD__*)
-    F="${RES#__LOAD__ }"
-    [ -n "$F" ] && load_loadout "$F"
-    ;;
-  __DELETE__*)
-    F="${RES#__DELETE__ }"
-    [ -n "$F" ] && delete_loadout "$F"
-    ;;
-  esac
+				--preview-window="right:48%:nowrap" \
+				--bind="ctrl-c:become(echo __CREATE__)" \
+				--bind="ctrl-e:become(echo __EDIT__ {1})" \
+				--bind="ctrl-l:become(echo __LOAD__ {1})" \
+				--bind="ctrl-d:become(echo __DELETE__ {1})" \
+				--bind="enter:become(echo __LOAD__ {1})" \
+				--bind="esc:become(echo __QUIT__)"
+	)"
+	case "$RES" in
+	"" | __QUIT__)
+		break
+		;;
+	__CREATE__)
+		F="$(new_loadout)"
+		if [ -n "$F" ] && [ -f "$F" ]; then
+			load_loadout "$F"
+			notify-send \
+				"Loadout" \
+				"created $(basename "$F" .conf)" \
+				-t 2000
+		fi
+		;;
+	__EDIT__*)
+		F="${RES#__EDIT__ }"
+		if [ -n "$F" ]; then
+			edit_loadout "$F" && load_loadout "$F"
+		fi
+		;;
+	__LOAD__*)
+		F="${RES#__LOAD__ }"
+		[ -n "$F" ] && load_loadout "$F"
+		;;
+	__DELETE__*)
+		F="${RES#__DELETE__ }"
+		[ -n "$F" ] && delete_loadout "$F"
+		;;
+	esac
 done
 exit 0
