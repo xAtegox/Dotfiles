@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────
 # wallpaper picker — atego
 # ─────────────────────────────────────────────
-WALL_DIR="$HOME/Pictures/wallpaper"
+WALL_DIR="$HOME/Downloads"
 WAL_LAST="$(dirname "$0")/wal_last.txt"
 FAVORITES_FILE="$HOME/.config/wal/favorites.txt"
 SETTINGS_FILE="$HOME/.cache/wal/wallpaper_settings.tsv"

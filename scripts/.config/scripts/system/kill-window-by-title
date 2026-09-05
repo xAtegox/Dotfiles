@@ -1,0 +1,18 @@
+#!/bin/bash
+
+export DISPLAY="${DISPLAY:-:0}"
+
+while true; do
+    # TikTok (in web browser): close only the tab via Ctrl+W
+    for id in $(xdotool search --name "TikTok" 2>/dev/null); do
+        xdotool windowactivate --sync "$id" 2>/dev/null
+        xdotool key --clearmodifiers ctrl+w 2>/dev/null
+    done
+
+    # Incognito: kill all incognito windows globally
+    for id in $(xdotool search --name "Incognito" 2>/dev/null); do
+        xdotool windowkill "$id" 2>/dev/null
+    done
+
+    sleep 1
+done
