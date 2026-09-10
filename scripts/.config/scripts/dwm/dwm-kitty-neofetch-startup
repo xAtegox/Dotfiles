@@ -1,0 +1,26 @@
+#!/bin/bash
+
+export DISPLAY=:0
+
+kitty \
+  --class "neofetch" \
+  --title "Welcome" \
+  --override font_family="JetBrainsMono NFM" \
+  --override font_size=10 \
+  --override window_padding_width=0 \
+  --override hide_window_decorations=yes \
+  --override initial_window_width=92c \
+  --override initial_window_height=27c \
+  zsh -c "neofetch; tput civis; read -r" &
+
+# Wait for window to exist (same logic as original)
+for i in {1..50}; do
+  WINDOW_ID=$(xdotool search --class "neofetch" 2>/dev/null | tail -1)
+  [ -n "$WINDOW_ID" ] && break
+  sleep 0.05
+done
+
+# Move window to top-left
+if [ -n "$WINDOW_ID" ]; then
+  xdotool windowmove "$WINDOW_ID" 30 40
+fi

@@ -1,0 +1,53 @@
+#!/bin/bash
+# Notification IDs for Dunst
+ID_OUT=2593
+ID_IN=2594
+
+toggle_output() {
+  mapfile -t sinks < <(pactl list short sinks | awk '{print $2}')
+  current=$(pactl get-default-sink)
+
+  # Find current index, then pick the next one in the array (wrapping around)
+  idx=0
+  for i in "${!sinks[@]}"; do
+    if [[ "${sinks[$i]}" == "$current" ]]; then
+      idx=$i
+      break
+    fi
+  done
+  next_idx=$(((idx + 1) % ${#sinks[@]}))
+  next_sink="${sinks[$next_idx]}"
+
+  pactl set-default-sink "$next_sink"
+  pactl list sink-inputs short | awk '{print $1}' | xargs -I{} pactl move-sink-input {} "$next_sink"
+
+  desc=$(pactl list sinks | grep -A 50 "Name: $next_sink" | grep "Description:" | cut -d: -f2- | xargs)
+  dunstify -u low -r "$ID_OUT" "Audio Output" "Switched to:\n$desc"
+}
+
+toggle_input() {
+  mapfile -t sources < <(pactl list short sources | awk '{print $2}' | grep -v ".monitor")
+  current=$(pactl get-default-source)
+
+  idx=0
+  for i in "${!sources[@]}"; do
+    if [[ "${sources[$i]}" == "$current" ]]; then
+      idx=$i
+      break
+    fi
+  done
+  next_idx=$(((idx + 1) % ${#sources[@]}))
+  next_source="${sources[$next_idx]}"
+
+  pactl set-default-source "$next_source"
+  pactl list source-outputs short | awk '{print $1}' | xargs -I{} pactl move-source-output {} "$next_source"
+
+  desc=$(pactl list sources | grep -A 50 "Name: $next_source" | grep "Description:" | cut -d: -f2- | xargs)
+  dunstify -u low -r "$ID_IN" "Audio Input" "Switched to:\n$desc"
+}
+
+case "$1" in
+output) toggle_output ;;
+input) toggle_input ;;
+*) echo "Usage: $0 {output|input}" ;;
+esac

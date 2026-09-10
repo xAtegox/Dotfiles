@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# playerctl-loop ensures that when a track is skipped in the music player itself, it still updates on bar
+# Use setsid to properly detach the background process to avoid hanging popen
+if command -v playerctl-loop >/dev/null 2>&1; then
+  pidof -x playerctl-loop >/dev/null 2>&1 || setsid -f playerctl-loop >/dev/null 2>&1
+fi
+
+# format state to alternate between artist - title and album - title
+FORMAT_FILE="/tmp/dwmblocks_mus_format"
+[ ! -f "$FORMAT_FILE" ] && echo "0" >"$FORMAT_FILE"
+read FORMAT <"$FORMAT_FILE"
+
+# priority is: ncspot (if playing), then mpd, then fallback to paused info
+if [ -z "$MUSIC_PLAYING_PLAYERS" ]; then
+  # if MUSIC_PLAYING_PLAYERS is not set, use the default players
+  MUSIC_PLAYING_PLAYERS="ncspot chromium mpd mpv rmpc"
+fi
+
+[ "$FORMAT" -eq 0 ] && META="{{ artist }} - {{ title }}" || META="{{ album }} - {{ title }}"
+
+FOUND_PLAYING=0
+for PLAYER in $MUSIC_PLAYING_PLAYERS; do
+  # Try to get the player instance (for ncspot which has dynamic instance names)
+  if [ "$PLAYER" = "ncspot" ]; then
+    NCSPOT_INSTANCE=$(timeout 0.5 playerctl --list-all 2>/dev/null | grep ncspot | head -1)
+    if [ -z "$NCSPOT_INSTANCE" ]; then
+      continue
+    fi
+    PLAYER="$NCSPOT_INSTANCE"
+  fi
+
+  STATUS=$(timeout 0.5 playerctl --player="$PLAYER" status 2>/dev/null)
+
+  if [ "$STATUS" = "Playing" ]; then
+    ICON=" "
+    OUTPUT=$(timeout 0.5 playerctl metadata --player "$PLAYER" --format "$META" 2>/dev/null)
+    # Only show if output is valid (not empty, not "?", not just separators/whitespace)
+    if [ -n "$OUTPUT" ] && [ "$OUTPUT" != "?" ] && echo "$OUTPUT" | grep -qv '^ *- *$'; then
+      printf "%s%s" "$ICON" "$OUTPUT"
+      FOUND_PLAYING=1
+      break
+    fi
+  fi
+done
+
+case $BLOCK_BUTTON in
+1) echo "$((($FORMAT + 1) % 2))" >"$FORMAT_FILE" ;;
+2)
+  NCSPOT=$(timeout 0.5 playerctl --list-all 2>/dev/null | grep ncspot | head -1)
+  [ -n "$NCSPOT" ] && timeout 1 playerctl --player "$NCSPOT" play-pause 2>/dev/null || timeout 1 playerctl --player mpd play-pause 2>/dev/null
+  pkill -RTMIN+11 "${STATUSBAR:-dwmblocks}"
+  ;;
+3)
+  setsid -w -f "$TERMINAL" -e pulsemixer 2>/dev/null
+  pkill -RTMIN+11 "${STATUSBAR:-dwmblocks}"
+  ;;
+4) amixer -D pulse sset Master 10%+ 2>/dev/null ;;
+5) amixer -D pulse sset Master 10%- 2>/dev/null ;;
+6) setsid -f "$TERMINAL" -e "$EDITOR" "$0" ;;
+esac

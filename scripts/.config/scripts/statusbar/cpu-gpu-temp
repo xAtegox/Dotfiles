@@ -1,0 +1,119 @@
+#!/bin/sh
+
+# CPU/GPU temperature monitor for dwmblocks
+# Alternates between CPU and GPU temp on each click
+# Left click (button 1): toggle format
+# Right click (button 3): refresh
+
+# Format file to alternate between CPU and GPU
+FORMAT_FILE="/tmp/dwmblocks_temp_format"
+[ ! -f "$FORMAT_FILE" ] && echo "0" >"$FORMAT_FILE"
+read FORMAT <"$FORMAT_FILE"
+
+# ---- Helper functions ----
+
+get_cpu_temp() {
+    # Try common hwmon paths first, then fall back to thermal zones
+    for zone in /sys/class/thermal/thermal_zone*; do
+        [ -r "$zone/type" ] || continue
+        case "$(cat "$zone/type" 2>/dev/null)" in
+            x86_pkg_temp|acpitz|cpu-thermal|cpu_thermal)
+                if [ -r "$zone/temp" ]; then
+                    temp=$(cat "$zone/temp")
+                    echo "$((temp / 1000))"
+                    return
+                fi
+                ;;
+        esac
+    done
+
+    # Fallback: k10temp (AMD) or coretemp (Intel) via hwmon
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        [ -r "$hwmon/name" ] || continue
+        case "$(cat "$hwmon/name")" in
+            k10temp|coretemp|zenpower)
+                if [ -r "$hwmon/temp1_input" ]; then
+                    temp=$(cat "$hwmon/temp1_input")
+                    echo "$((temp / 1000))"
+                    return
+                fi
+                ;;
+        esac
+    done
+
+    # Fallback: sensors command
+    if command -v sensors >/dev/null 2>&1; then
+        sensors 2>/dev/null | awk '/^(Package id 0|Tctl|Tdie|CPU Temperature)/ {gsub(/[+°C]/,"",$NF); print int($NF); exit}'
+        return
+    fi
+
+    echo "N/A"
+}
+
+get_gpu_temp() {
+    # AMD GPU via amdgpu hwmon
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        [ -r "$hwmon/name" ] || continue
+        case "$(cat "$hwmon/name")" in
+            amdgpu)
+                if [ -r "$hwmon/temp1_input" ]; then
+                    temp=$(cat "$hwmon/temp1_input")
+                    echo "$((temp / 1000))"
+                    return
+                fi
+                ;;
+        esac
+    done
+
+    # NVIDIA via nvidia-smi
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        temp=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -n1)
+        [ -n "$temp" ] && { echo "$temp"; return; }
+    fi
+
+    # Intel GPU via i915
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        [ -r "$hwmon/name" ] || continue
+        case "$(cat "$hwmon/name")" in
+            i915)
+                if [ -r "$hwmon/temp1_input" ]; then
+                    temp=$(cat "$hwmon/temp1_input")
+                    echo "$((temp / 1000))"
+                    return
+                fi
+                ;;
+        esac
+    done
+
+    echo "N/A"
+}
+
+# ---- Button handling ----
+
+case "$BLOCK_BUTTON" in
+    1)  # Left click - toggle between CPU and GPU
+        if [ "$FORMAT" = "0" ]; then
+            echo "1" >"$FORMAT_FILE"
+        else
+            echo "0" >"$FORMAT_FILE"
+        fi
+        ;;
+    3)  # Right click - refresh only
+        ;;
+esac
+
+# Re-read in case button just changed it
+read FORMAT <"$FORMAT_FILE"
+
+# ---- Output ----
+
+CPU_TEMP=$(get_cpu_temp)
+GPU_TEMP=$(get_gpu_temp)
+
+if [ "$FORMAT" = "0" ]; then
+    # Show both, colored by temperature
+    printf "CPU %s°C GPU %s°C\n" "$CPU_TEMP" "$GPU_TEMP"
+else
+    # Alternate view (e.g., bigger/cleaner)
+    printf "🌡 %s°C / %s°C\n" "$CPU_TEMP" "$GPU_TEMP"
+fi

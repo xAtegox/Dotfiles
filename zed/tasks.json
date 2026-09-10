@@ -1,0 +1,18 @@
+[
+  {
+    "label": "Run and Clean C",
+    "command": "clear; gcc \"$ZED_FILE\" -o \"$ZED_STEM\" && \"./$ZED_STEM\"; rm \"./$ZED_STEM\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+    "show_summary": false,
+    "show_command": false,
+  },
+  {
+    "label": "Arduino: Auto-Upload",
+    "command": "if [[ \"$ZED_FILE\" != *.ino ]]; then echo \"Error: Not a .ino file\"; exit 1; fi; SKETCH_NAME=$(basename \"$ZED_FILE\" .ino); TMP_DIR=\"/tmp/$SKETCH_NAME\"; mkdir -p \"$TMP_DIR\"; cp \"$ZED_FILE\" \"$TMP_DIR/$SKETCH_NAME.ino\"; PORT=$(arduino-cli board list | awk 'NR>1 && $1!=\"Port\" {print $1}' | head -n 1); if [ -z \"$PORT\" ]; then echo 'No Arduino found! Check cable connection.'; exit 1; fi; clear; echo \"Flash -> $SKETCH_NAME on $PORT\"; arduino-cli compile --fqbn arduino:avr:uno --upload --port \"$PORT\" \"$TMP_DIR\"; rm -rf \"$TMP_DIR\"",
+    "use_new_terminal": false,
+    "reveal": "always",
+    "show_summary": true,
+    "show_command": false,
+  },
+]

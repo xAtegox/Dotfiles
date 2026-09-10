@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# --- CONFIGURATION ---
+# Adjusted for your Modding structure
+BASE_DIR="$HOME/Videos/ogg-converter"
+PRE_DIR="$BASE_DIR/raw_audio"
+POST_DIR="$BASE_DIR/converted_ogg"
+
+mkdir -p "$PRE_DIR" "$POST_DIR"
+
+# --- Check if there are files to convert ---
+shopt -s nullglob
+# Looks for mp3, wav, flac, and m4a
+FILES=("$PRE_DIR"/*.{mp3,wav,flac,m4a})
+
+if [ ${#FILES[@]} -eq 0 ]; then
+  notify-send "OGG Conversion" "No audio files found in 'raw_audio'."
+  exit 0
+fi
+
+# --- Start conversion ---
+notify-send "OGG Conversion" "Starting conversion of ${#FILES[@]} file(s)..."
+
+for input in "${FILES[@]}"; do
+  # Convert filename to lowercase and replace spaces with underscores (Best for MC)
+  filename=$(basename "$input" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+  output="$POST_DIR/${filename%.*}.ogg"
+
+  # -ac 1: Forces Mono (Required for 3D/100-block radius)
+  # -c:a libvorbis: The standard OGG codec
+  # -q:a 4: High quality variable bitrate (Standard for MC music)
+  nice -n 10 ffmpeg -i "$input" \
+    -ac 2 \
+    -c:a libvorbis \
+    -q:a 4 \
+    -y \
+    "$output" && echo "✓ Converted: $output"
+
+done
+
+notify-send "OGG Conversion" "All files converted! Files are now Mono and ready for jjk_addon."

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Battery status script for dwmblocks
+BATTERY_PATH=$(find /sys/class/power_supply -maxdepth 1 -name 'BAT*' 2>/dev/null | head -n1)
+if [ -z "$BATTERY_PATH" ] || [ ! -d "$BATTERY_PATH" ]; then
+  echo "N/A"
+  exit 0
+fi
+CAPACITY=$(cat "$BATTERY_PATH/capacity")
+STATUS=$(cat "$BATTERY_PATH/status")
+# Choose icon based on status and capacity
+if [ "$STATUS" = "Charging" ]; then
+  ICON="󰂄"
+elif [ "$STATUS" = "Full" ]; then
+  ICON="󰁹"
+elif [ "$CAPACITY" -ge 80 ]; then
+  ICON="󰂂"
+elif [ "$CAPACITY" -ge 60 ]; then
+  ICON="󰂁"
+elif [ "$CAPACITY" -ge 40 ]; then
+  ICON="󰂀"
+elif [ "$CAPACITY" -ge 20 ]; then
+  ICON="󰁻"
+else
+  ICON="󰂎"
+fi
+echo "$ICON $CAPACITY%"
+# Click handler
+case $BLOCK_BUTTON in
+3) notify-send "Battery" "Status: $STATUS\nCapacity: $CAPACITY%" ;;
+esac

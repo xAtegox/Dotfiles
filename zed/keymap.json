@@ -1,0 +1,23 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "f5": null,
+      "f6": null,
+    },
+  },
+  {
+    "context": "Editor && vim_mode == insert",
+    "bindings": {
+      "f5": null,
+      "f6": null,
+    },
+  },
+  {
+    "context": "Editor",
+    "bindings": {
+      "f5": ["task::Spawn", { "task_name": "Run and Clean C" }],
+      "f6": ["task::Spawn", { "task_name": "Arduino: Auto-Upload" }],
+    },
+  },
+]

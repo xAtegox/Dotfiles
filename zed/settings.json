@@ -1,0 +1,57 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "colorize_brackets": true,
+  "inlay_hints": {
+    "enabled": true
+  },
+  "toolbar": {
+    "code_actions": true
+  },
+  "edit_predictions": {
+    "provider": "ollama"
+  },
+  "agent": {
+    "default_profile": "ask",
+    "tool_permissions": {
+      "default": "allow"
+    },
+    "default_model": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:3b"
+    },
+    "favorite_models": [],
+    "model_parameters": []
+  },
+  "preferred_line_length": 500,
+  "minimap": {
+    "max_width_columns": 95,
+  },
+  "base_keymap": "JetBrains",
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "vim_mode": false,
+  "icon_theme": {
+    "mode": "dark",
+    "light": "Zed (Default)",
+    "dark": "Zed (Default)",
+  },
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": {
+    "mode": "light",
+    "light": "Gruvbox Light",
+    "dark": "Ayu Mirage",
+  },
+}

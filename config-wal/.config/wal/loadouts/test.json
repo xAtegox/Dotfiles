@@ -1,0 +1,10 @@
+{
+  "name": "test",
+  "wallpaper": "/home/atego/Pictures/wallpaper/budha.jpg",
+  "color_source": "wallpaper",
+  "theme": "",
+  "color_wallpaper": "/home/atego/Pictures/wallpaper/budha.jpg",
+  "backend": "colorthief",
+  "mode": "light",
+  "extra": {}
+}

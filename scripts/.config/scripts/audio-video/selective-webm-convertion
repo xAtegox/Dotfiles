@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# --- CONFIGURATION ---
+BASE_DIR="$HOME/Videos/webm conversion"
+PRE_DIR="$BASE_DIR/pre convertion"
+POST_DIR="$BASE_DIR/post convertion"
+
+mkdir -p "$PRE_DIR" "$POST_DIR"
+
+# --- Check if there are files to convert ---
+shopt -s nullglob
+FILES=("$PRE_DIR"/*)
+if [ ${#FILES[@]} -eq 0 ]; then
+  notify-send "WebM Conversion" "No files found in 'pre convertion'."
+  exit 0
+fi
+
+# --- Start conversion ---
+notify-send "WebM Conversion" "Starting conversion of ${#FILES[@]} file(s)..."
+
+for input in "${FILES[@]}"; do
+  filename=$(basename "$input")
+  output="$POST_DIR/${filename%.*}.webm"
+
+  nice -n 10 ionice -c3 ffmpeg -i "$input" \
+    -c:v libvpx-vp9 \
+    -crf 38 \
+    -b:v 0 \
+    -speed 8 \
+    -tile-columns 4 \
+    -threads 4 \
+    -row-mt 1 \
+    -vf "scale='min(1280,iw)':-2,fps=30" \
+    -auto-alt-ref 1 \
+    -lag-in-frames 25 \
+    -c:a libopus \
+    -b:a 64k \
+    -ac 1 \
+    "$output" && echo "✓ Done: $output"
+
+done
+
+notify-send "WebM Conversion" "All files converted! Output in 'post convertion'."
+

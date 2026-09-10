@@ -1,0 +1,106 @@
+#!/bin/bash
+
+RGB="/dev/video0"
+IR="/dev/video2"
+DEVICE="nvidia_wmi_ec_backlight"
+
+MIN_BRIGHT=10
+MAX_BRIGHT=100
+
+capture_rgb() {
+  ffmpeg \
+    -hide_banner \
+    -loglevel error \
+    -f v4l2 \
+    -video_size 160x90 \
+    -input_format mjpeg \
+    -i "$RGB" \
+    -frames:v 1 \
+    -f rawvideo \
+    -pix_fmt gray -
+}
+
+capture_ir() {
+  ffmpeg \
+    -hide_banner \
+    -loglevel error \
+    -f v4l2 \
+    -video_size 160x90 \
+    -input_format gray \
+    -i "$IR" \
+    -frames:v 1 \
+    -f rawvideo \
+    -pix_fmt gray -
+}
+
+# Capture both at the same time
+capture_rgb >/tmp/rgb.raw &
+RGB_PID=$!
+
+capture_ir >/tmp/ir.raw &
+IR_PID=$!
+
+wait $RGB_PID
+wait $IR_PID
+
+python <<'PY'
+import subprocess
+import math
+
+
+def average(path):
+    try:
+        with open(path, "rb") as f:
+            data=f.read()
+
+        if not data:
+            return 0
+
+        # sample every 16th byte
+        data=data[::16]
+
+        return sum(data)/len(data)
+
+    except:
+        return 0
+
+
+rgb=average("/tmp/rgb.raw")
+ir=average("/tmp/ir.raw")
+
+
+# IR spikes = hands/faces
+if ir > 150:
+    ir=0
+
+
+# RGB normally wins
+if rgb > 0.5:
+    light=rgb
+else:
+    light=(rgb*0.7)+(ir*0.3)
+
+
+brightness=10+(light/10)*90
+
+brightness=max(10,min(100,brightness))
+
+print(f"RGB: {rgb:.2f}")
+print(f"IR: {ir:.2f}")
+print(f"Light: {light:.2f}")
+print(f"Brightness: {brightness:.0f}%")
+
+
+subprocess.run(
+    [
+        "brightnessctl",
+        "-d",
+        "nvidia_wmi_ec_backlight",
+        "set",
+        f"{brightness:.0f}%"
+    ],
+    stdout=subprocess.DEVNULL
+)
+PY
+
+rm -f /tmp/rgb.raw /tmp/ir.raw
