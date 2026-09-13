@@ -14,11 +14,11 @@ mkdir -p "$(dirname "$POSFILE")"
 # ==================================================
 
 APPS='
-wmbatteries  wmbatteries    DockApp      wmbatteries -bw
-wmnetload    wmnetload      Wmnetload    wmnetload -w -i wlan0
-wmmemload    wmmemload      DockApp      wmmemload -bw
-wmcpuload    wmcpuload      DockApp      wmcpuload -bw
-wmclockmon   wmclockmon     DockApp      wmclockmon -bw
+wmbatteries  wmbatteries    DockApp      wmbatteries
+wmnetload    wmnetload      Wmnetload    wmnetload -w -i auto -u 1
+wmmemload    wmmemload      DockApp      wmmemload
+wmcpuload    wmcpuload      DockApp      wmcpuload
+wmclockmon   wmclockmon     DockApp      wmclockmon
 '
 
 # ==================================================

@@ -190,7 +190,7 @@ start_recording() {
   # Good compression, decent quality, CPU-only.
   ffargs+=(
     -c:v libx264
-    -preset slower
+    -preset fast
     -crf 30
     -pix_fmt yuv420p
     -g 30
