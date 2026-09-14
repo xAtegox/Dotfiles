@@ -10,6 +10,14 @@ REC_COOLDOWN_FLAG="$HOME/.cache/recording_cooldown"
 COOLDOWN_SECS=5
 BASE_REC_DIR="$HOME/Videos/screenrecord"
 
+# Quality/CPU tuning — quality and CPU usage are prioritized over
+# file size, so both encode paths use a low QP/CRF (bigger files,
+# better quality) and the hardware path is preferred whenever it
+# can actually encode, since it barely touches the CPU at all.
+VAAPI_QP=18       # h264_vaapi quality: lower = better quality, bigger files
+CPU_CRF=20        # libx264 fallback quality: lower = better quality, bigger files
+CPU_PRESET="fast" # kept fast (not "medium"/"slow") to keep the CPU-fallback path cheap
+
 mkdir -p "$BASE_REC_DIR"
 mkdir -p "$(dirname "$REC_FLAG")"
 
@@ -56,6 +64,33 @@ cooldown_remaining() {
       fi
     fi
   fi
+
+  return 1
+}
+
+# Probes each render node with a throwaway 1-frame encode and
+# returns the first one that actually works with h264_vaapi.
+# Prints nothing (and returns 1) if none do, so callers can fall
+# back to the CPU path.
+pick_vaapi_device() {
+  local dev
+
+  for dev in /dev/dri/renderD129 /dev/dri/renderD128; do
+    [[ -e "$dev" ]] || continue
+
+    # 128x128 is the AMD VAAPI encoder's minimum frame size — a
+    # smaller test frame fails every device, hiding whether encode
+    # actually works.
+    if timeout 3 ffmpeg -hide_banner -loglevel error \
+      -vaapi_device "$dev" \
+      -f lavfi -i color=black:s=128x128:d=0.1 \
+      -vf 'format=nv12,hwupload' \
+      -c:v h264_vaapi -frames:v 1 -f null - \
+      >/dev/null 2>&1; then
+      echo "$dev"
+      return 0
+    fi
+  done
 
   return 1
 }
@@ -132,21 +167,30 @@ start_recording() {
 
   touch "$REC_FLAG"
 
+  # ─────────────────────────────────────────
+  # FFmpeg encode path.
+  #
+  # Prefers h264_vaapi (hardware encode on the iGPU's render node)
+  # to keep CPU usage low; falls back to libx264 only if no VAAPI
+  # device probes successfully. Either way quality is prioritized
+  # over file size (low QP/CRF).
+  # ─────────────────────────────────────────
+
+  local vaapi_dev
+  vaapi_dev="$(pick_vaapi_device)"
+
   notify-send \
     "Recording STARTED" \
-    "$timestamp — x264 CPU"
-
-  # ─────────────────────────────────────────
-  # FFmpeg — single x264 CPU encode path.
-  # Audio graph is the only thing that varies,
-  # built as an array instead of duplicating
-  # the whole command per case.
-  # ─────────────────────────────────────────
+    "$timestamp — $([[ -n "$vaapi_dev" ]] && echo "h264_vaapi (HW)" || echo "x264 CPU")"
 
   local -a ffargs=(
     -hide_banner
     -loglevel error
+  )
 
+  [[ -n "$vaapi_dev" ]] && ffargs+=(-vaapi_device "$vaapi_dev")
+
+  ffargs+=(
     -thread_queue_size 1024
     -f x11grab
     -framerate 30
@@ -155,45 +199,77 @@ start_recording() {
     -i ":0.0+0,0"
   )
 
+  # filter_complex parts: video only needs one when we're going
+  # through VAAPI (nv12 + hwupload); audio only needs one when
+  # mixing two distinct sources. Either, both, or neither may apply.
+  local -a fc_parts=()
+  local video_map audio_map
+  local -a audio_codec
+
+  if [[ -n "$vaapi_dev" ]]; then
+    fc_parts+=("[0:v]format=nv12,hwupload[vout]")
+    video_map="[vout]"
+  else
+    video_map="0:v:0"
+  fi
+
   if [[ -n "$sys_audio" && -n "$mic_audio" && "$sys_audio" != "$mic_audio" ]]; then
 
-    ffargs+=(
-      -thread_queue_size 1024 -f pulse -i "$sys_audio"
-      -thread_queue_size 1024 -f pulse -i "$mic_audio"
-      -filter_complex "[1:a]volume=1.5[sys];[2:a]volume=1.2[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
-      -map 0:v:0 -map "[aout]"
-      -c:a aac -b:a 192k
-    )
+    ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
+    ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
+    fc_parts+=("[1:a]volume=1.5[sys];[2:a]volume=1.2[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
+    audio_map="[aout]"
+    audio_codec=(-c:a aac -b:a 192k)
 
   elif [[ -n "$sys_audio" ]]; then
 
-    ffargs+=(
-      -thread_queue_size 1024 -f pulse -i "$sys_audio"
-      -map 0:v:0 -map 1:a:0
-      -c:a aac -b:a 192k
-    )
+    ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
+    audio_map="1:a:0"
+    audio_codec=(-c:a aac -b:a 192k)
 
   elif [[ -n "$mic_audio" ]]; then
 
-    ffargs+=(
-      -thread_queue_size 1024 -f pulse -i "$mic_audio"
-      -map 0:v:0 -map 1:a:0
-      -c:a aac -b:a 192k
-    )
+    ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
+    audio_map="1:a:0"
+    audio_codec=(-c:a aac -b:a 192k)
 
   else
 
-    ffargs+=(-map 0:v:0 -an)
+    audio_map=""
+    audio_codec=(-an)
 
   fi
 
-  # Good compression, decent quality, CPU-only.
+  if ((${#fc_parts[@]})); then
+    local fc_joined="${fc_parts[0]}"
+    local i
+    for ((i = 1; i < ${#fc_parts[@]}; i++)); do
+      fc_joined+=";${fc_parts[i]}"
+    done
+    ffargs+=(-filter_complex "$fc_joined")
+  fi
+
+  ffargs+=(-map "$video_map")
+  [[ -n "$audio_map" ]] && ffargs+=(-map "$audio_map")
+  ffargs+=("${audio_codec[@]}")
+
+  if [[ -n "$vaapi_dev" ]]; then
+    ffargs+=(
+      -c:v h264_vaapi
+      -qp "$VAAPI_QP"
+      -g 30
+    )
+  else
+    ffargs+=(
+      -c:v libx264
+      -preset "$CPU_PRESET"
+      -crf "$CPU_CRF"
+      -pix_fmt yuv420p
+      -g 30
+    )
+  fi
+
   ffargs+=(
-    -c:v libx264
-    -preset fast
-    -crf 30
-    -pix_fmt yuv420p
-    -g 30
     -fps_mode cfr
     -movflags +faststart
     -y "$output"
