@@ -229,16 +229,36 @@ load_loadout() {
 	ban="$(cfg_get banner "$file")"
 	skin="$(cfg_get skin "$file")"
 	ff="$(cfg_get ff "$file")"
+	# The wallpaper (pywal pipeline) and the banner/skin/fastfetch swaps touch
+	# different dirs/files, so fire them all off in parallel and wait for the
+	# slowest one — total time becomes max() instead of the sum.
+	local pids=()
 	if [ "$src" = theme ] && [ -n "$th" ]; then
-		apply_theme "$th" "$mo"
+		apply_theme "$th" "$mo" &
+		pids+=("$!")
 	elif [ -n "$wall" ] && [ -f "$wall" ]; then
-		[ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
-		apply "$wall" "$be" "$mo"
-		save_wallpaper_settings "$wall" "$be" "$mo"
+		(
+			[ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
+			apply "$wall" "$be" "$mo"
+			save_wallpaper_settings "$wall" "$be" "$mo"
+		) &
+		pids+=("$!")
 	fi
-	[ -n "$ban" ] && set_banner "$ban"
-	[ -n "$skin" ] && [ "$skin" != none ] && qmmp_activate "$skin"
-	[ -n "$ff" ] && [ "$ff" != none ] && ff_activate "$ff"
+	if [ -n "$ban" ]; then
+		set_banner "$ban" &
+		pids+=("$!")
+	fi
+	if [ -n "$skin" ] && [ "$skin" != none ]; then
+		qmmp_activate "$skin" &
+		pids+=("$!")
+	fi
+	if [ -n "$ff" ] && [ "$ff" != none ]; then
+		ff_activate "$ff" &
+		pids+=("$!")
+	fi
+	for pid in "${pids[@]}"; do
+		wait "$pid" 2>/dev/null
+	done
 }
 delete_loadout() {
 	local file="$1"
@@ -749,6 +769,7 @@ if [[ "$1" != "--inside" ]]; then
 		printf '# wal colors\n'
 		[ -f "$WAL_KITTY" ] &&
 			cat "$WAL_KITTY"
+		printf 'allow_remote_control yes\n'
 		printf 'font_size 10\n'
 		printf 'confirm_os_window_close 0\n'
 		printf 'initial_window_width %sc\n' "$COLS"
