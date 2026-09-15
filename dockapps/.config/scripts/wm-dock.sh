@@ -19,7 +19,7 @@ wmnetload    wmnetload      Wmnetload    wmnetload -w -i auto -u 1
 wmmemload    wmmemload      DockApp      wmmemload
 wmcpuload    wmcpuload      DockApp      wmcpuload
 wmclockmon   wmclockmon     DockApp      wmclockmon
-WMmp         WMmp           DockApp      $HOME/.config/scripts/wmmp-qmmp
+WMmp         WMmp           DockApp      MPD_HOST=127.0.0.1 MPD_PORT=6601 WMmp
 '
 
 # ==================================================
