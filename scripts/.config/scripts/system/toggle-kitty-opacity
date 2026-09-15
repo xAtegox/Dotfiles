@@ -33,7 +33,7 @@ fi
 # second press" bug)
 current_state=$(cat "$STATE" 2>/dev/null)
 if [ "$current_state" = "opaque" ]; then
-  opacity_uint32=$((75 * 42949672))
+  opacity_uint32=$((85 * 42949672))
   echo "transparent" >"$STATE"
   cp "$STATE" "$PERSISTENT"
 else

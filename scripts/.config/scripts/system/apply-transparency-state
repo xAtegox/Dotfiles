@@ -18,7 +18,7 @@ fi
 if [ "$current_state" = "opaque" ]; then
   opacity_uint32=$((100 * 42949672))
 else
-  opacity_uint32=$((75 * 42949672))
+  opacity_uint32=$((85 * 42949672))
 fi
 
 # Apply to windows matching class
