@@ -176,7 +176,7 @@ pick_theme() {
       --pointer="▌" \
       --marker="●" \
       --input-label=" " \
-      --preview-label="[ $MODE ]  ctrl-l mode  esc back" \
+      --preview-label="theme  esc back" \
       --preview-border=sharp \
       --info=right \
       --color="bg:-1,bg+:#161916,fg:#888880,fg+:#c0c0ba" \
@@ -240,24 +240,21 @@ except Exception:
 \" 2>/dev/null
 " \
       --preview-window="right:48%:nowrap" \
-      --bind="ctrl-l:become(echo __TOGGLE_MODE__)" \
       --bind="esc:become(echo __BACK__)"
 }
 # ─────────────────────────────────────────────
 # Main loop
 # ─────────────────────────────────────────────
-MODE="dark"
 # EXPLICIT is set to 1 the moment the user manually
-# cycles backend (ctrl-b) or mode (ctrl-l) in this
-# session. While it's 1, whatever wallpaper the user
-# finally picks uses the *current* BACKEND/MODE and
-# overwrites that wallpaper's saved settings. While
-# it's 0, a plain Enter falls back to that wallpaper's
-# own saved backend/mode if one exists.
+# cycles backend (ctrl-b) in this session. While it's
+# 1, whatever wallpaper the user finally picks uses the
+# *current* BACKEND and overwrites that wallpaper's
+# saved settings. While it's 0, a plain Enter falls back
+# to that wallpaper's own saved backend if one exists.
 EXPLICIT=0
 while true; do
   BACKEND="${BACKENDS[$BACKEND_IDX]}"
-  PLABEL=" ${BACKEND} [$MODE]  ★ ctrl-f  backend ctrl-b  mode ctrl-l  theme ctrl-t  random ctrl-r  esc "
+  PLABEL=" ${BACKEND}  ★ ctrl-f  backend ctrl-b  theme ctrl-t  random ctrl-r  esc "
   IMG="$(
     "$SELF" --list |
       fzf \
@@ -300,7 +297,6 @@ ueberzugpp cmd \
         --preview-window="right:48%:nowrap" \
         --bind="ctrl-f:execute-silent(\"$SELF\" --toggle-favorite {2})+reload(\"$SELF\" --list)" \
         --bind="ctrl-b:become(echo __NEXT_BACKEND__)" \
-        --bind="ctrl-l:become(echo __NEXT_MODE__)" \
         --bind="ctrl-t:become(echo __THEME_PICKER__)" \
         --bind="ctrl-r:become(echo __RANDOM__)" \
         --bind="esc:become(echo __QUIT__)" |
@@ -315,54 +311,14 @@ ueberzugpp cmd \
     EXPLICIT=1
     continue
     ;;
-  __NEXT_MODE__)
-    case "$MODE" in
-    dark)
-      MODE="light"
-      ;;
-    light)
-      MODE="medium"
-      ;;
-    medium)
-      MODE="dark"
-      ;;
-    esac
-    EXPLICIT=1
-    notify-send \
-      "Wallpaper Picker" \
-      "Mode → $MODE" \
-      -t 1200
-    continue
-    ;;
   __THEME_PICKER__)
     THEME="$(pick_theme)"
     case "$THEME" in
     "" | __BACK__)
       continue
       ;;
-    __TOGGLE_MODE__)
-      case "$MODE" in
-      dark)
-        MODE="light"
-        ;;
-      light)
-        MODE="medium"
-        ;;
-      medium)
-        MODE="dark"
-        ;;
-      esac
-      EXPLICIT=1
-      notify-send \
-        "Wallpaper Picker" \
-        "Mode → $MODE" \
-        -t 1200
-      continue
-      ;;
     *)
-      apply_theme \
-        "$THEME" \
-        "$MODE"
+      apply_theme "$THEME"
       exit 0
       ;;
     esac
@@ -377,36 +333,21 @@ ueberzugpp cmd \
         shuf -n 1
     )"
     [ -n "$RANDOM_IMG" ] || exit 0
-    apply \
-      "$RANDOM_IMG" \
-      "$BACKEND" \
-      "$MODE"
-    save_wallpaper_settings \
-      "$RANDOM_IMG" \
-      "$BACKEND" \
-      "$MODE"
+    apply "$RANDOM_IMG" "$BACKEND"
+    save_wallpaper_settings "$RANDOM_IMG" "$BACKEND"
     exit 0
     ;;
   *)
     [ -n "$IMG" ] || exit 0
     if [ "$EXPLICIT" = 1 ]; then
       USE_BACKEND="$BACKEND"
-      USE_MODE="$MODE"
     elif get_saved_settings "$IMG"; then
       USE_BACKEND="$SAVED_BACKEND"
-      USE_MODE="$SAVED_MODE"
     else
       USE_BACKEND="$BACKEND"
-      USE_MODE="$MODE"
     fi
-    apply \
-      "$IMG" \
-      "$USE_BACKEND" \
-      "$USE_MODE"
-    save_wallpaper_settings \
-      "$IMG" \
-      "$USE_BACKEND" \
-      "$USE_MODE"
+    apply "$IMG" "$USE_BACKEND"
+    save_wallpaper_settings "$IMG" "$USE_BACKEND"
     exit 0
     ;;
   esac

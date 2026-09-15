@@ -4,26 +4,17 @@
 # Layout / loadout manager.
 #
 # A "loadout" bundles everything needed to reproduce a setup:
-#   - wallpaper (with wal backend + mode)  OR  custom pywal theme
+#   - wallpaper (with wal backend)  OR  custom pywal theme
 #   - emacs doom banner (one active .xpm in ~/.config/doom/banners/)
 #
 # NOTE on pywal colours: the entire pywal pipeline (wal backends,
-# dark/medium/light post-processing, asusctl keyboard backlight,
-# dwm/xrdb/kitty refresh) is shared with gif-test via wal-lib.sh.
-# gif-test is the proven implementation — if you need to change anything
-# colour-related, edit wal-lib.sh, not here.
+# asusctl keyboard backlight, dwm/xrdb/kitty refresh) is shared with
+# gif-test via wal-lib.sh. gif-test is the proven implementation — if you
+# need to change anything colour-related, edit wal-lib.sh, not here.
 # ─────────────────────────────────────────────
 DIR="$(dirname "$(realpath "$0")")"
 WAL_LAST="$DIR/wal_last.txt"
 source "$DIR/wal-lib.sh"
-# Loadouts mode post-processing (args to process_wal_colors, passed after
-# wal runs). Values borrowed from the fzfub wallpaper script:
-#   light:  wal -l produces the light palette; 0.1 0 0.2 0.1 darkens bg a
-#           little and others a little more (readable, colourful, NOT white).
-#   medium: -0.15 0 0 0.10 = darken bg slightly, small sat boost elsewhere.
-#   dark:   default (no processing).
-PROCESS_LIGHT="0.1 0 0.2 0.1"
-PROCESS_MEDIUM="-0.15 0 0 0.10"
 
 WALL_DIR="$HOME/Pictures/wallpaper"
 LOADOUTS_DIR="$HOME/.config/scripts/loadouts"
@@ -198,16 +189,14 @@ ff_activate() {
 	return 0
 }
 write_loadout() {
-	local file="$1" src="$2" wall="$3" be="$4" mo="$5" th="$6" ban="$7" skin="$8" ff="$9"
+	local file="$1" src="$2" wall="$3" be="$4" th="$5" ban="$6" skin="$7" ff="$8"
 	{
 		printf 'source=%s\n' "$src"
 		if [ "$src" = theme ]; then
 			printf 'theme=%s\n' "$th"
-			printf 'mode=dark\n'
 		else
 			printf 'wallpaper=%s\n' "$wall"
 			printf 'backend=%s\n' "$be"
-			printf 'mode=%s\n' "$mo"
 		fi
 		printf 'banner=%s\n' "$ban"
 		printf 'skin=%s\n' "$skin"
@@ -217,14 +206,12 @@ write_loadout() {
 load_loadout() {
 	local file="$1"
 	[ -f "$file" ] || return 1
-	local src wall be mo th ban skin ff
+	local src wall be th ban skin ff
 	LOADOUT_SILENT=1
 	src="$(cfg_get source "$file")"
 	[ -z "$src" ] && src=wallpaper
 	wall="$(cfg_get wallpaper "$file")"
 	be="$(cfg_get backend "$file")"
-	mo="$(cfg_get mode "$file")"
-	[ -z "$mo" ] && mo=dark
 	th="$(cfg_get theme "$file")"
 	ban="$(cfg_get banner "$file")"
 	skin="$(cfg_get skin "$file")"
@@ -234,13 +221,13 @@ load_loadout() {
 	# slowest one — total time becomes max() instead of the sum.
 	local pids=()
 	if [ "$src" = theme ] && [ -n "$th" ]; then
-		apply_theme "$th" "$mo" &
+		apply_theme "$th" &
 		pids+=("$!")
 	elif [ -n "$wall" ] && [ -f "$wall" ]; then
 		(
 			[ -z "$be" ] && be="$(cat "$HOME/.config/wal/backend" 2>/dev/null)" && [ -z "$be" ] && be=wal
-			apply "$wall" "$be" "$mo"
-			save_wallpaper_settings "$wall" "$be" "$mo"
+			apply "$wall" "$be"
+			save_wallpaper_settings "$wall" "$be"
 		) &
 		pids+=("$!")
 	fi
@@ -398,28 +385,6 @@ stage_backend() {
 	run_fzf \
 		" Backend " \
 		" [ backend ]  enter pick   C-n next   esc abort " \
-		"ctrl-n:accept" "" <<<"$data"
-}
-stage_mode() {
-	local cur="${1:-}"
-	local data
-	data="$(
-		{
-			[ "$cur" = dark ] && printf 'dark\tdark — default\n'
-			[ "$cur" = medium ] &&
-				printf 'medium\tmedium — a little more colourful\n'
-			[ "$cur" = light ] &&
-				printf 'light\tlight — light-mode pywal palette\n'
-			[ "$cur" != dark ] && printf 'dark\tdark — default\n'
-			[ "$cur" != medium ] &&
-				printf 'medium\tmedium — a little more colourful\n'
-			[ "$cur" != light ] &&
-				printf 'light\tlight — light-mode pywal palette\n'
-		}
-	)"
-	run_fzf \
-		" Mode " \
-		" [ mode ]  enter pick   C-n next   esc abort " \
 		"ctrl-n:accept" "" <<<"$data"
 }
 stage_theme() {
@@ -619,12 +584,12 @@ stage_name() {
 # ─────────────────────────────────────────────
 # Create / edit flow
 #
-# Stages: wallpaper → source → (backend → mode | theme) → banner → name.
+# Stages: wallpaper → source → (backend | theme) → banner → name.
 # Each stage is a fresh fzf "tab" advanced with C-n. Add new stages by
 # appending a stage_* function and a call in new_loadout/edit_loadout.
 # ─────────────────────────────────────────────
 new_loadout() {
-	local wall="" src="" be="" mo="" th="" ban="" skin="" ff="" name="" res="" file=""
+	local wall="" src="" be="" th="" ban="" skin="" ff="" name="" res="" file=""
 	res="$(stage_wallpaper)" || return 1
 	wall="$res"
 	res="$(stage_source)" || return 1
@@ -635,8 +600,6 @@ new_loadout() {
 	else
 		res="$(stage_backend)" || return 1
 		be="$res"
-		res="$(stage_mode)" || return 1
-		mo="$res"
 	fi
 	res="$(stage_banner)" || return 1
 	ban="$res"
@@ -654,7 +617,7 @@ new_loadout() {
 	done
 	name="${name//\//_}"
 	file="$LOADOUTS_DIR/$name.conf"
-	write_loadout "$file" "$src" "$wall" "$be" "$mo" "$th" "$ban" "$skin" "$ff"
+	write_loadout "$file" "$src" "$wall" "$be" "$th" "$ban" "$skin" "$ff"
 	printf '%s' "$file"
 }
 edit_loadout() {
@@ -662,14 +625,12 @@ edit_loadout() {
 	[ -f "$file" ] || return 1
 	local name
 	name="$(basename "$file" .conf)"
-	local cur_src cur_wall cur_be cur_mo cur_th cur_ban cur_skin cur_ff
+	local cur_src cur_wall cur_be cur_th cur_ban cur_skin cur_ff
 	local sel res rc wlab changed=0
 	cur_src="$(cfg_get source "$file")"
 	[ -z "$cur_src" ] && cur_src=wallpaper
 	cur_wall="$(cfg_get wallpaper "$file")"
 	cur_be="$(cfg_get backend "$file")"
-	cur_mo="$(cfg_get mode "$file")"
-	[ -z "$cur_mo" ] && cur_mo=dark
 	cur_th="$(cfg_get theme "$file")"
 	cur_ban="$(cfg_get banner "$file")"
 	cur_skin="$(cfg_get skin "$file")"
@@ -687,7 +648,6 @@ edit_loadout() {
 					printf 'theme\ttheme — %s\n' "${cur_th:-—}"
 				else
 					printf 'backend\tbackend — %s\n' "${cur_be:-—}"
-					printf 'mode\tmode — %s\n' "$cur_mo"
 				fi
 				printf 'banner\tbanner — %s\n' "${cur_ban:-—}"
 				printf 'skin\tskin — %s\n' "${cur_skin:-—}"
@@ -708,10 +668,6 @@ edit_loadout() {
 		backend)
 			res="$(stage_backend "$cur_be")" || continue
 			cur_be="$res"
-			;;
-		mode)
-			res="$(stage_mode "$cur_mo")" || continue
-			cur_mo="$res"
 			;;
 		theme)
 			res="$(stage_theme "$cur_th")" || continue
@@ -735,7 +691,7 @@ edit_loadout() {
 		*) break ;;
 		esac
 		changed=1
-		write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_mo" "$cur_th" "$cur_ban" "$cur_skin" "$cur_ff"
+		write_loadout "$file" "$cur_src" "$cur_wall" "$cur_be" "$cur_th" "$cur_ban" "$cur_skin" "$cur_ff"
 	done
 	# return 0 only if something was actually edited (so the caller reloads);
 	# pressing esc with no change returns 1 and skips the reload.
@@ -849,11 +805,10 @@ src=$(grep "^source=" "$f" 2>/dev/null | cut -d= -f2-);
 wall=$(grep "^wallpaper=" "$f" 2>/dev/null | cut -d= -f2-);
 th=$(grep "^theme=" "$f" 2>/dev/null | cut -d= -f2-);
 be=$(grep "^backend=" "$f" 2>/dev/null | cut -d= -f2-);
-mo=$(grep "^mode=" "$f" 2>/dev/null | cut -d= -f2-);
 ban=$(grep "^banner=" "$f" 2>/dev/null | cut -d= -f2-);
 echo "  {2}";
 echo "  source:   $src";
-echo "  backend:  ${be:-—}    mode: ${mo:-dark}";
+echo "  backend:  ${be:-—}";
 echo "  theme:    ${th:-—}";
 echo "  wallpaper: ${wall:-—}";
 echo "  banner:   ${ban:-—}";

@@ -3,8 +3,7 @@
 #
 # NOTE: everything pywal-related that gif-test does is kept here so that
 # gif-test and loadouts stay in sync. This is the source of truth for:
-#   - wallpaper / theme application (wal backends + dark/medium/light modes)
-#   - colour post-processing (process_wal_colors)
+#   - wallpaper / theme application (wal backends)
 #   - dwm / xrdb / kitty refresh
 #   - asusctl keyboard backlight sync
 # (zed-theme + zennotes sync were removed from the apply path)
@@ -17,11 +16,6 @@
 : "${SETTINGS_FILE:=$HOME/.cache/wal/wallpaper_settings.tsv}"
 : "${PREVIEW_CACHE:=$HOME/.cache/wal_preview_thumbs}"
 : "${ZEN_THEME_DIR:=$HOME/.config/zennotes/themes/wal-theme}"
-# Mode post-processing presets (passed to process_wal_colors).
-# Defaults are gif-test's values; scripts that want their own modes
-# (e.g. loadouts) can override these after sourcing.
-: "${PROCESS_LIGHT:=-0.18 0.25 -0.10 0.20 vibrant}"
-: "${PROCESS_MEDIUM:=0.0 2.0 0.02 2.0 vibrant}"
 mkdir -p "$PREVIEW_CACHE" 2>/dev/null || true
 mkdir -p "$(dirname "$FAVORITES_FILE")" 2>/dev/null || true
 mkdir -p "$(dirname "$SETTINGS_FILE")" 2>/dev/null || true
@@ -81,7 +75,7 @@ get_saved_settings() {
   return 0
 }
 save_wallpaper_settings() {
-  local file="$1" backend="$2" mode="$3" tmp
+  local file="$1" backend="$2" mode="${3:-dark}" tmp
   tmp="$(mktemp)"
   grep -Fv -- "$(printf '%s\t' "$file")" "$SETTINGS_FILE" 2>/dev/null >"$tmp" || true
   printf '%s\t%s\t%s\n' "$file" "$backend" "$mode" >>"$tmp"
@@ -169,145 +163,6 @@ refresh_dunst() {
     setsid -f dunst </dev/null >/dev/null 2>&1 &
     disown 2>/dev/null || true
   fi
-}
-# ─────────────────────────────────────────────
-# Color post-processing
-# ─────────────────────────────────────────────
-process_wal_colors() {
-  python3 - "$1" "$2" "$3" "$4" "${5:-}" <<'PYEOF'
-import colorsys
-import json
-import re
-import sys
-from pathlib import Path
-def hex_to_hsl(c):
-    c = c.lstrip("#")
-    r, g, b = (
-        int(c[i:i+2], 16) / 255.0
-        for i in (0, 2, 4)
-    )
-    return colorsys.rgb_to_hls(r, g, b)
-def hsl_to_hex(h, l, s):
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    return "#{:02x}{:02x}{:02x}".format(
-        int(r * 255),
-        int(g * 255),
-        int(b * 255)
-    )
-def enrich(c, ld, sd, vibrant):
-    h, l, s = hex_to_hsl(c)
-    l = max(0.0, min(1.0, l - ld))
-    if vibrant:
-        s = min(1.0, s * (1.0 + sd))
-    else:
-        s = max(0.0, min(0.8, s + sd))
-    return hsl_to_hex(h, l, s)
-bg_l, bg_s, other_l, other_s = (
-    float(x) for x in sys.argv[1:5]
-)
-vibrant = (
-    len(sys.argv) > 5 and
-    sys.argv[5] == "vibrant"
-)
-cache = Path.home() / ".cache" / "wal"
-colors_json = cache / "colors.json"
-data = json.loads(colors_json.read_text())
-cmap = {}
-for key, orig in data.get("colors", {}).items():
-    new = enrich(
-        orig,
-        bg_l if key == "color0" else other_l,
-        bg_s if key == "color0" else other_s,
-        vibrant
-    )
-    cmap[orig] = new
-    data["colors"][key] = new
-for key, orig in data.get("special", {}).items():
-    new = enrich(
-        orig,
-        bg_l if key == "background" else other_l,
-        bg_s if key == "background" else other_s,
-        vibrant
-    )
-    cmap[orig] = new
-    data["special"][key] = new
-colors_json.write_text(
-    json.dumps(data, indent=2)
-)
-for fname in (
-    "sequences",
-    "colors.Xresources",
-    "colors-wal.vim"
-):
-    p = cache / fname
-    if p.exists():
-        txt = p.read_text()
-        for old, new in cmap.items():
-            txt = re.sub(
-                re.escape(old),
-                new,
-                txt,
-                flags=re.IGNORECASE
-            )
-        p.write_text(txt)
-sp = data.get("special", {})
-co = data.get("colors", {})
-wp = data.get("wallpaper", "")
-sh = f"""# Shell variables
-wallpaper='{wp}'
-background='{sp.get("background", "#000000")}'
-foreground='{sp.get("foreground", "#ffffff")}'
-cursor='{sp.get("cursor", "#ffffff")}'
-"""
-for i in range(16):
-    sh += (
-        f"color{i}="
-        f"'{co.get(f'color{i}', '#000000')}'\n"
-    )
-(cache / "colors.sh").write_text(sh)
-kitty = f"""foreground   {sp.get("foreground", "#ffffff")}
-background   {sp.get("background", "#000000")}
-cursor       {sp.get("cursor", "#ffffff")}
-"""
-pairs = (
-    (0, 8),
-    (1, 9),
-    (2, 10),
-    (3, 11),
-    (4, 12),
-    (5, 13),
-    (6, 14),
-    (7, 15),
-)
-for a, b in pairs:
-    kitty += (
-        f"color{a:<5}  "
-        f"{co.get(f'color{a}', '#000000')}\n"
-        f"color{b:<5}  "
-        f"{co.get(f'color{b}', '#000000')}\n"
-    )
-(cache / "colors-kitty.conf").write_text(kitty)
-tpl_dir = Path.home() / ".config" / "wal" / "templates"
-if tpl_dir.exists():
-    for tpl in tpl_dir.glob("*"):
-        if tpl.is_file():
-            txt = tpl.read_text()
-            for k, v in co.items():
-                txt = txt.replace(
-                    f"{{{k}}}",
-                    v
-                )
-            for k, v in sp.items():
-                txt = txt.replace(
-                    f"{{{k}}}",
-                    v
-                )
-            txt = txt.replace(
-                "{wallpaper}",
-                wp
-            )
-            (cache / tpl.name).write_text(txt)
-PYEOF
 }
 # ─────────────────────────────────────────────
 # Keyboard backlight
@@ -565,30 +420,11 @@ sync_emacs() {
 apply() {
   local file="$1"
   local backend="$2"
-  local mode="${3:-dark}"
   [ -f "$file" ] || return 1
   set_static "$file"
-  case "$mode" in
-  light)
-    wal -i "$file" \
-      --backend "$backend" \
-      -t -n -q
-    process_wal_colors \
-      $PROCESS_LIGHT
-    ;;
-  medium)
-    wal -i "$file" \
-      --backend "$backend" \
-      -t -n -q
-    process_wal_colors \
-      $PROCESS_MEDIUM
-    ;;
-  *)
-    wal -i "$file" \
-      --backend "$backend" \
-      -t -n -q
-    ;;
-  esac
+  wal -i "$file" \
+    --backend "$backend" \
+    -t -n -q
   sync_keyboard_color
   for sock in "$XDG_RUNTIME_DIR"/nvim.*.0; do
     [ -S "$sock" ] || continue
@@ -603,7 +439,7 @@ apply() {
   if [ -z "${LOADOUT_SILENT:-}" ]; then
     notify-send \
       "Wallpaper" \
-      "$(basename "$file") [$mode]" \
+      "$(basename "$file")" \
       -t 3000
   fi
 }
@@ -612,38 +448,17 @@ apply() {
 # ─────────────────────────────────────────────
 apply_theme() {
   local theme="$1"
-  local mode="${2:-dark}"
-  echo "$theme $mode" \
+  echo "$theme" \
     >"$HOME/.cache/wal/last_theme"
-  case "$mode" in
-  light)
-    wal --theme "$theme" \
-      -t -n -q
-    process_wal_colors \
-      -0.18 0.25 \
-      -0.10 0.20 \
-      vibrant
-    ;;
-  medium)
-    wal --theme "$theme" \
-      -t -n -q
-    process_wal_colors \
-      0.0 2.0 \
-      0.02 2.0 \
-      vibrant
-    ;;
-  *)
-    wal --theme "$theme" \
-      -t -n -q
-    ;;
-  esac
+  wal --theme "$theme" \
+    -t -n -q
   sync_keyboard_color
   sync_emacs
   refresh_dwm
   if [ -z "${LOADOUT_SILENT:-}" ]; then
     notify-send \
       "Theme" \
-      "$theme [$mode]" \
+      "$theme" \
       -t 3000
   fi
 }
