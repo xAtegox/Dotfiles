@@ -158,9 +158,17 @@ refresh_dwm() {
       "$HOME/.cache/wal/colors-kitty.conf" \
       2>/dev/null || true
   fi
+  refresh_dunst
 }
 set_static() {
   feh --bg-scale "$1"
+}
+refresh_dunst() {
+  pkill -x dunst 2>/dev/null || true
+  if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+    setsid -f dunst </dev/null >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+  fi
 }
 # ─────────────────────────────────────────────
 # Color post-processing

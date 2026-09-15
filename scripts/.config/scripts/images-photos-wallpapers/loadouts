@@ -156,7 +156,7 @@ qmmp_activate() {
 			sleep 0.3
 			pkill -x qmmp >/dev/null 2>&1
 			sleep 0.3
-			qmmp >/dev/null 2>&1 &
+			setsid -f qmmp </dev/null >/dev/null 2>&1
 		) >/dev/null 2>&1 &
 		disown 2>/dev/null || true
 	fi
