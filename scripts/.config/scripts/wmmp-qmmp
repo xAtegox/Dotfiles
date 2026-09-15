@@ -1,0 +1,27 @@
+#!/bin/sh
+# Start WMmp backed by qmmp (via the wmmp-qmmp MPD->MPRIS bridge).
+#
+# WMmp is an MPD dockapp; instead of talking to the real MPD server we
+# point it at the local bridge, which forwards everything to qmmp over
+# D-Bus.  Real MPD (if running) keeps port 6600; we use 6601.
+#
+# Usage: wmmp-qmmp [wmmp-args...]
+
+BRIDGE="$HOME/.config/scripts/wmmp-qmmp-bridge.py"
+PORT="${WMMP_BRIDGE_PORT:-6601}"
+LOG="$HOME/.cache/wmmp-qmmp-bridge.log"
+
+mkdir -p "$HOME/.cache"
+
+# Start the bridge if it isn't already listening.
+if ! ss -ltn 2>/dev/null | grep -q "127.0.0.1:$PORT "; then
+  setsid "$BRIDGE" "$PORT" >>"$LOG" 2>&1 &
+  i=0
+  while [ "$i" -lt 20 ]; do
+    ss -ltn 2>/dev/null | grep -q "127.0.0.1:$PORT " && break
+    sleep 0.1
+    i=$((i + 1))
+  done
+fi
+
+exec env MPD_HOST=127.0.0.1 MPD_PORT="$PORT" WMmp "$@"
