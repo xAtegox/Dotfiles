@@ -45,7 +45,7 @@ printf "\n"
 results_raw=$($YTDLP --user-agent "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
   "ytsearch${SEARCH_SIZE}:${query}" \
   --flat-playlist \
-  --print "%(title)s|%(id)s|%(uploader)s" \
+  --print "%(title)s\t%(id)s\t%(uploader)s" \
   2>/dev/null)
 
 if [ -z "$results_raw" ]; then
@@ -55,8 +55,13 @@ fi
 # Build fzf menu by processing line by line into a temp file
 fzf_input_file=$(mktemp)
 counter=1
-while IFS='|' read -r title id uploader; do
+while IFS=$'\t' read -r title id uploader; do
   [ -z "$title" ] || [ -z "$id" ] && continue
+
+  # Store full data as arrays (index matches the numbered fzf menu exactly,
+  # so display number N always plays result N even if lines are skipped)
+  ids[$counter]="$id"
+  titles[$counter]="$title"
 
   # Truncate title if too long
   if [ ${#title} -gt 80 ]; then
@@ -87,10 +92,9 @@ rm -f "$fzf_input_file"
 # Extract the line number from selection
 line_num=$(printf "%s" "$selection" | awk '{print $1}' | tr -d ')')
 
-# Get the corresponding video ID and title from the original results
-video_line=$(printf "%s" "$results_raw" | sed -n "${line_num}p")
-video_id=$(printf "%s" "$video_line" | cut -d'|' -f2)
-video_title=$(printf "%s" "$video_line" | cut -d'|' -f1)
+# Get the corresponding video ID and title from the stored arrays
+video_id="${ids[$line_num]}"
+video_title="${titles[$line_num]}"
 
 [ -z "$video_id" ] && die "Failed to extract video ID"
 
