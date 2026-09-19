@@ -152,13 +152,8 @@
                     direction: Vertical,
                     panes: [
                         (
-                            size: "65%",
+                            size: "100%",
                             pane: Pane(Queue),
-                            borders: "ALL",
-                        ),
-                        (
-                            size: "35%",
-                            pane: Pane(Cava),
                             borders: "ALL",
                         ),
                     ],
