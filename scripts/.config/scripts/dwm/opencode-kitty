@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 # Open a floating kitty running opencode, sized to the currently-focused window.
 export DISPLAY="${DISPLAY:-:0}"
 

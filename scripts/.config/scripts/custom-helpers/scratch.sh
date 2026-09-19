@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 # Ephemeral scratch pad.
 # Opens a small st terminal in the top-right corner.
 # Type immediately — no editor needed.

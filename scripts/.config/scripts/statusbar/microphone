@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 # Mic usage indicator for dwmblocks
 
 # Check if any application currently has an active recording stream

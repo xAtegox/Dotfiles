@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 xdotool key super+ctrl+b
 slock
 xdotool key super+ctrl+b

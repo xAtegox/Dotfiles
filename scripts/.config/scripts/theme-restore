@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 # boot-theme-restore — full theme refresh, safe to call from .xinitrc
 
 ln -sf ~/.cache/wal/colors.Xresources ~/.Xresources
@@ -29,7 +29,7 @@ if [ -f ~/.cache/wal/sequences ]; then
 fi
 
 # Only talk to kitty if a kitty socket/instance actually exists
-if command -v kitty &>/dev/null && pgrep -x kitty >/dev/null; then
+if command -v kitty >/dev/null 2>&1 && pgrep -x kitty >/dev/null; then
   timeout 2 kitty @ set-colors --all ~/.cache/wal/colors-kitty.conf 2>/dev/null || true
 fi
 

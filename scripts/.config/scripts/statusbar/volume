@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 
 # Get volume and mute status
 # head -1 ensures we only get the master volume if multiple channels exist

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/dash
 
 # CPU/GPU temperature monitor for dwmblocks
 # Alternates between CPU and GPU temp on each click

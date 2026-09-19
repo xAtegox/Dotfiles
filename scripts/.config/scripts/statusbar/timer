@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 
 cleanup() {
 echo "" > /tmp/timericon;
@@ -7,14 +7,14 @@ exit 0
 }
 
 timer () {
-trap cleanup SIGHUP SIGINT SIGQUIT SIGABRT SIGTERM # 1 2 3 6 15
+trap cleanup HUP INT QUIT ABRT TERM # 1 2 3 6 15
 while [ $TOTAL_SECONDS -gt 0 ]; do
     MIN=$(printf "%02d" $((TOTAL_SECONDS / 60)))
     SEC=$(printf "%02d" $((TOTAL_SECONDS % 60)))
     echo "  $MIN $SEC " > /tmp/timericon;
     pkill -RTMIN+3 dwmblocks;
     sleep 1
-    ((TOTAL_SECONDS--))
+    TOTAL_SECONDS=$((TOTAL_SECONDS - 1))
 done
 
 notify-send "Timer ended, take a break"

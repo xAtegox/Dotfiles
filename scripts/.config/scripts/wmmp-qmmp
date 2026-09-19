@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/dash
 # Start WMmp backed by qmmp (via the wmmp-qmmp MPD->MPRIS bridge).
 #
 # WMmp is an MPD dockapp; instead of talking to the real MPD server we

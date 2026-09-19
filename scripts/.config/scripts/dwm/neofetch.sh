@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 kitty --title "Welcome" \
   --override initial_window_width=670 \
   --override initial_window_height=450 \

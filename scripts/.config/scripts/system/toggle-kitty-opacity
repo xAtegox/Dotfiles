@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 # Toggle picom window transparency + sync Emacs state
 STATE="/tmp/transparency-state"
 PERSISTENT="$HOME/.cache/transparency-state"

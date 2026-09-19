@@ -1,2 +1,2 @@
-#!/usr/bin/env bash
-LC_TIME=en_US.UTF-8 printf "%(%A, %B %e  %H:%M)T\n"
+#!/bin/dash
+LC_TIME=en_US.UTF-8 date "+%A, %B %e  %H:%M"

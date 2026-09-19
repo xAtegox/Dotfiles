@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 
 export DISPLAY=:0
 
@@ -14,10 +14,12 @@ kitty \
   zsh -c "neofetch; tput civis; read -r" &
 
 # Wait for window to exist (same logic as original)
-for i in {1..50}; do
+i=0
+while [ "$i" -lt 50 ]; do
   WINDOW_ID=$(xdotool search --class "neofetch" 2>/dev/null | tail -1)
   [ -n "$WINDOW_ID" ] && break
   sleep 0.05
+  i=$((i + 1))
 done
 
 # Move window to top-left

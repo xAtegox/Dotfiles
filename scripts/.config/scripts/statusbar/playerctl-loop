@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/dash
 
 # Event-driven playerctl monitor using --follow flag
 # Watches for metadata changes and signals dwmblocks to update

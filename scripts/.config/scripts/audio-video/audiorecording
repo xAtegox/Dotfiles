@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 # --- CONFIGURATION ---
 REC_FLAG="$HOME/.cache/audio_triple_flag"
 REC_COOLDOWN_FLAG="$HOME/.cache/audio_cooldown"
@@ -7,16 +7,16 @@ BASE_REC_DIR="$HOME/Videos/audio_recordings"
 mkdir -p "$BASE_REC_DIR"
 
 is_recording() {
-  [[ -f "$REC_FLAG" ]]
+  [ -f "$REC_FLAG" ]
 }
 
 cooldown_remaining() {
-  if [[ -f "$REC_COOLDOWN_FLAG" ]]; then
+  if [ -f "$REC_COOLDOWN_FLAG" ]; then
     local last_stop now elapsed
     last_stop=$(cat "$REC_COOLDOWN_FLAG")
     now=$(date +%s)
     elapsed=$((now - last_stop))
-    if ((elapsed < COOLDOWN_SECS)); then
+    if [ "$elapsed" -lt "$COOLDOWN_SECS" ]; then
       echo $((COOLDOWN_SECS - elapsed))
       return 0
     fi
@@ -37,7 +37,7 @@ start_recording() {
   day_folder="$(date +%d-%m-%Y)"
   timestamp="$(date +%H-%M)"
   session_path="$BASE_REC_DIR/$day_folder/$timestamp"
-  mkdir -p "$session_path"/{studio_quality,music_quality,discord_quality}
+  mkdir -p "$session_path/studio_quality" "$session_path/music_quality" "$session_path/discord_quality"
   output="$session_path/studio_quality/studio_master_$(date +%H%M%S).flac"
   echo "$output" >"${REC_FLAG}.output"
   echo "$session_path" >"${REC_FLAG}.path"

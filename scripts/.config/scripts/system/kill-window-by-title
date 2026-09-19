@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/dash
 
 export DISPLAY="${DISPLAY:-:0}"
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 
 DEVICE="/dev/video0"
 PID_FILE="/tmp/cam_rec.pid"
@@ -32,7 +32,7 @@ done
 # --- Helpers ---
 
 check_device() {
-  if [[ ! -e "$DEVICE" ]]; then
+  if [ ! -e "$DEVICE" ]; then
     notify-send "Camera" "No camera found at $DEVICE" -i camera
     exit 1
   fi
@@ -88,7 +88,7 @@ view)
 toggle-rec)
   check_device
 
-  if [[ -f "$PID_FILE" ]]; then
+  if [ -f "$PID_FILE" ]; then
     # STOP — SIGINT lets ffmpeg flush and finalize the container properly
     PID=$(cat "$PID_FILE")
     FILENAME=$(cat "${PID_FILE}.file" 2>/dev/null)
@@ -100,7 +100,7 @@ toggle-rec)
     rm -f "$PID_FILE" "${PID_FILE}.file"
 
     # Delete the recording file
-    [[ -n "$FILENAME" && -f "$FILENAME" ]] && rm -f "$FILENAME"
+    [ -n "$FILENAME" ] && [ -f "$FILENAME" ] && rm -f "$FILENAME"
 
     notify-send "Camera" "Recording stopped and cleaned up." -i camera-video
   else

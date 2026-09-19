@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/dash
 # Battery status script for dwmblocks
 BATTERY_PATH=$(find /sys/class/power_supply -maxdepth 1 -name 'BAT*' 2>/dev/null | head -n1)
 if [ -z "$BATTERY_PATH" ] || [ ! -d "$BATTERY_PATH" ]; then
