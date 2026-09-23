@@ -35,6 +35,7 @@ import urllib.parse
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = int(os.environ.get("WMMP_BRIDGE_PORT", "6601"))
+MPD_UPSTREAM = ("127.0.0.1", 6600)   # real MPD, used when eject-mode = mpd
 WELCOME = b"OK MPD 0.23.4\n"
 PLAYER = "qmmp"
 POLL_INTERVAL = 0.5          # s between snapshot refreshes
@@ -71,6 +72,7 @@ class QmmpBackend:
         self._stopped = False
         self._spawned = False
         self._spawned_at = 0.0
+        self._mode = "qmmp"   # "qmmp" or "mpd" (toggled by WMmp's eject button)
         threading.Thread(target=self._worker, daemon=True).start()
 
     # ----- called from WMmp socket threads -----
@@ -81,6 +83,36 @@ class QmmpBackend:
     def snapshot(self):
         with self._lock:
             return dict(self._cache)
+
+    # ----- eject button: toggle between qmmp and the real MPD -----
+
+    def in_mpd_mode(self):
+        return self._mode == "mpd"
+
+    def toggle_mode(self):
+        self._mode = "mpd" if self._mode == "qmmp" else "qmmp"
+        return "OK\n"
+
+    def proxy_mpd(self, line):
+        try:
+            s = socket.create_connection(MPD_UPSTREAM, timeout=2)
+            f = s.makefile("rwb")
+            f.readline()                      # MPD welcome line
+            f.write((line + "\n").encode())
+            f.flush()
+            out = []
+            while True:
+                l = f.readline()
+                if not l:
+                    break
+                out.append(l.decode("utf-8", "replace"))
+                if l.startswith(b"OK") or l.startswith(b"ACK"):
+                    break
+            f.close()
+            s.close()
+            return "".join(out)
+        except Exception:
+            return "OK\n"
 
     # ----- playerctl helpers (bounded subprocesses) -----
 
@@ -324,6 +356,10 @@ def respond(backend, line):
     if not parts:
         return ""
     name = parts[0].lower()
+    if name == "eject":
+        return backend.toggle_mode()
+    if backend.in_mpd_mode():
+        return backend.proxy_mpd(line)
     if name == "status":
         return status_response(backend.snapshot())
     if name == "playlistinfo":

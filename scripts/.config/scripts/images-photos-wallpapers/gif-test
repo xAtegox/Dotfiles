@@ -75,15 +75,17 @@ fi
 # Spawn kitty
 # ─────────────────────────────────────────────
 if [[ "$1" != "--inside" ]]; then
-  read -r SCREEN_W SCREEN_H < <(
+  read -r SCREEN_W SCREEN_H SCREEN_X SCREEN_Y < <(
     xrandr --current 2>/dev/null |
       grep ' connected primary' |
-      grep -oP '\d+x\d+' |
+      grep -oP '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' |
       head -1 |
-      tr 'x' ' '
+      tr 'x+' ' '
   )
   [ -z "$SCREEN_W" ] && SCREEN_W=1920
   [ -z "$SCREEN_H" ] && SCREEN_H=1080
+  SCREEN_X="${SCREEN_X:-0}"
+  SCREEN_Y="${SCREEN_Y:-0}"
   # Compact window
   FONT_W=8
   FONT_H=16
@@ -91,8 +93,8 @@ if [[ "$1" != "--inside" ]]; then
   ROWS=$((SCREEN_H * 43 / 100 / FONT_H))
   [ "$COLS" -lt 85 ] && COLS=85
   [ "$ROWS" -lt 18 ] && ROWS=18
-  POS_X=$(((SCREEN_W - COLS * FONT_W) / 2))
-  POS_Y=$(((SCREEN_H - ROWS * FONT_H) / 2))
+  POS_X=$((SCREEN_X + (SCREEN_W - COLS * FONT_W) / 2))
+  POS_Y=$((SCREEN_Y + (SCREEN_H - ROWS * FONT_H) / 2))
   WAL_SEQ="$HOME/.cache/wal/sequences"
   WAL_KITTY="$HOME/.cache/wal/colors-kitty.conf"
   KITTY_CONF="/tmp/walpicker_kitty_$$.conf"
