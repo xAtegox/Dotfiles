@@ -16,7 +16,6 @@ An extremely maximalist but very optimised setup that does everything I _persona
   - Lualine git information display
   - Lazygit integration
 - Markdown/Obsidian support
-- Discord presence
 
 ---
 
