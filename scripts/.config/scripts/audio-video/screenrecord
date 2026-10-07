@@ -18,6 +18,14 @@ VAAPI_QP=18       # h264_vaapi quality: lower = better quality, bigger files
 CPU_CRF=20        # libx264 fallback quality: lower = better quality, bigger files
 CPU_PRESET="fast" # kept fast (not "medium"/"slow") to keep the CPU-fallback path cheap
 
+# Post-stop compression — runs detached in the background after the
+# recording stops, so it never competes with gameplay. Produces a
+# smaller .mp4 next to the original and keeps both.
+COMPRESS_CRF=26            # higher = smaller file, lower quality
+COMPRESS_PRESET="medium"
+COMPRESS_AUDIO_BITRATE="160k"
+COMPRESS_SUFFIX=".compressed"
+
 mkdir -p "$BASE_REC_DIR"
 mkdir -p "$(dirname "$REC_FLAG")"
 
@@ -308,6 +316,57 @@ start_recording() {
 }
 
 # ─────────────────────────────────────────────
+# Post-stop compression (background)
+# ─────────────────────────────────────────────
+
+# Re-encodes a finished recording into a smaller .mp4 kept alongside
+# the original. Runs with low priority so it never steals CPU from
+# anything you do right after stopping.
+compress_background() {
+  local src="$1"
+  local dst="${src%.mp4}${COMPRESS_SUFFIX}.mp4"
+  local log="${src}.compress.log"
+
+  # Already compressed (e.g. this recording was stopped twice)
+  [[ -e "$dst" ]] && exit 0
+
+  if nice -n 10 ffmpeg -hide_banner -loglevel error -i "$src" \
+    -c:v libx264 \
+    -preset "$COMPRESS_PRESET" \
+    -crf "$COMPRESS_CRF" \
+    -c:a aac -b:a "$COMPRESS_AUDIO_BITRATE" \
+    -movflags +faststart \
+    -y "$dst" >"$log" 2>&1; then
+
+    rm -f "$log"
+    notify-send \
+      "Recording compressed" \
+      "$(basename "$dst") — $(du -h "$dst" | awk '{print $1}')"
+
+  else
+
+    rm -f "$dst"
+    notify-send \
+      "Compression FAILED" \
+      "$(tail -n 3 "$log" 2>/dev/null)"
+    rm -f "$log"
+
+  fi
+}
+
+# Launches the compression detached from this script so the stop
+# command returns instantly and the process survives shell exit.
+start_compression() {
+  local src="$1"
+
+  export COMPRESS_CRF COMPRESS_PRESET COMPRESS_AUDIO_BITRATE COMPRESS_SUFFIX
+  export -f compress_background
+
+  setsid bash -c 'compress_background "$1"' _ "$src" >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+}
+
+# ─────────────────────────────────────────────
 # Stop
 # ─────────────────────────────────────────────
 
@@ -343,13 +402,15 @@ stop_recording() {
 
     notify-send \
       "Recording Saved" \
-      "$(basename "$output")"
+      "$(basename "$output") — compressing in background"
 
     # Copy file URI to clipboard
     if command -v xclip >/dev/null 2>&1; then
       printf 'file://%s' "$output" |
         xclip -selection clipboard -t text/uri-list
     fi
+
+    start_compression "$output"
 
   else
 
