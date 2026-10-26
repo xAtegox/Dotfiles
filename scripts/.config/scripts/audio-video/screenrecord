@@ -15,7 +15,7 @@ BASE_REC_DIR="$HOME/Videos/screenrecord"
 # better quality) and the hardware path is preferred whenever it
 # can actually encode, since it barely touches the CPU at all.
 VAAPI_QP=18       # h264_vaapi quality: lower = better quality, bigger files
-CPU_CRF=20        # libx264 fallback quality: lower = better quality, bigger files
+CPU_CRF=18        # libx264 fallback quality: lower = better quality, bigger files
 CPU_PRESET="fast" # kept fast (not "medium"/"slow") to keep the CPU-fallback path cheap
 
 # Post-stop compression — runs detached in the background after the
@@ -201,7 +201,7 @@ start_recording() {
   ffargs+=(
     -thread_queue_size 1024
     -f x11grab
-    -framerate 30
+    -framerate 24
     -video_size "$geometry"
     -draw_mouse 1
     -i ":0.0+0,0"
@@ -225,21 +225,21 @@ start_recording() {
 
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
-    fc_parts+=("[1:a]volume=1.5[sys];[2:a]volume=1.2[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
+    fc_parts+=("[1:a]volume=1.0[sys];[2:a]volume=1.0[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
     audio_map="[aout]"
-    audio_codec=(-c:a aac -b:a 192k)
+    audio_codec=(-c:a aac -b:a 384k)
 
   elif [[ -n "$sys_audio" ]]; then
 
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
     audio_map="1:a:0"
-    audio_codec=(-c:a aac -b:a 192k)
+    audio_codec=(-c:a aac -b:a 384k)
 
   elif [[ -n "$mic_audio" ]]; then
 
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
     audio_map="1:a:0"
-    audio_codec=(-c:a aac -b:a 192k)
+    audio_codec=(-c:a aac -b:a 384k)
 
   else
 
