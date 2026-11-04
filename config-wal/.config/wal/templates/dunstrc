@@ -34,14 +34,14 @@
 [urgency_low]
     background = "{background}"
     foreground = "{foreground}"
-    timeout = 30
+    timeout = 6
 
 [urgency_normal]
     background = "{background}"
     foreground = "{foreground}"
-    timeout = 30
+    timeout = 6
 
 [urgency_critical]
     background = "{color1}"
     foreground = "{foreground}"
-    timeout = 30
+    timeout = 6

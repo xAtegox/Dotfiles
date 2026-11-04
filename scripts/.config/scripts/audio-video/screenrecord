@@ -10,18 +10,11 @@ REC_COOLDOWN_FLAG="$HOME/.cache/recording_cooldown"
 COOLDOWN_SECS=5
 BASE_REC_DIR="$HOME/Videos/screenrecord"
 
-# Quality/CPU tuning — quality and CPU usage are prioritized over
-# file size, so both encode paths use a low QP/CRF (bigger files,
-# better quality) and the hardware path is preferred whenever it
-# can actually encode, since it barely touches the CPU at all.
-VAAPI_QP=18       # h264_vaapi quality: lower = better quality, bigger files
-CPU_CRF=18        # libx264 fallback quality: lower = better quality, bigger files
-CPU_PRESET="fast" # kept fast (not "medium"/"slow") to keep the CPU-fallback path cheap
+REC_FPS=60
+CPU_CRF=20
+CPU_PRESET="ultrafast"
 
-# Post-stop compression — runs detached in the background after the
-# recording stops, so it never competes with gameplay. Produces a
-# smaller .mp4 next to the original and keeps both.
-COMPRESS_CRF=26            # higher = smaller file, lower quality
+COMPRESS_CRF=26
 COMPRESS_PRESET="medium"
 COMPRESS_AUDIO_BITRATE="160k"
 COMPRESS_SUFFIX=".compressed"
@@ -35,23 +28,6 @@ mkdir -p "$(dirname "$REC_FLAG")"
 
 is_recording() {
   [[ -f "$REC_FLAG" ]]
-}
-
-is_on_ac() {
-  local supply
-
-  for supply in /sys/class/power_supply/*; do
-    [[ -f "$supply/type" ]] || continue
-
-    if [[ "$(cat "$supply/type")" == "Mains" ]]; then
-      if [[ -f "$supply/online" ]] &&
-        [[ "$(cat "$supply/online")" == "1" ]]; then
-        return 0
-      fi
-    fi
-  done
-
-  return 1
 }
 
 cooldown_remaining() {
@@ -76,33 +52,6 @@ cooldown_remaining() {
   return 1
 }
 
-# Probes each render node with a throwaway 1-frame encode and
-# returns the first one that actually works with h264_vaapi.
-# Prints nothing (and returns 1) if none do, so callers can fall
-# back to the CPU path.
-pick_vaapi_device() {
-  local dev
-
-  for dev in /dev/dri/renderD129 /dev/dri/renderD128; do
-    [[ -e "$dev" ]] || continue
-
-    # 128x128 is the AMD VAAPI encoder's minimum frame size — a
-    # smaller test frame fails every device, hiding whether encode
-    # actually works.
-    if timeout 3 ffmpeg -hide_banner -loglevel error \
-      -vaapi_device "$dev" \
-      -f lavfi -i color=black:s=128x128:d=0.1 \
-      -vf 'format=nv12,hwupload' \
-      -c:v h264_vaapi -frames:v 1 -f null - \
-      >/dev/null 2>&1; then
-      echo "$dev"
-      return 0
-    fi
-  done
-
-  return 1
-}
-
 # ─────────────────────────────────────────────
 # Start
 # ─────────────────────────────────────────────
@@ -122,7 +71,6 @@ start_recording() {
     exit 1
   fi
 
-  # Date directory
   local day_folder
   day_folder="$(date +%d-%m-%Y)"
 
@@ -131,14 +79,12 @@ start_recording() {
 
   mkdir -p "$session_path"
 
-  # Filename
   local timestamp
   timestamp="$(date +%H-%M-%S)"
 
   local output
   output="$session_path/${timestamp}.mp4"
 
-  # Detect screen size
   local geometry
 
   geometry="$(xrandr 2>/dev/null |
@@ -146,7 +92,6 @@ start_recording() {
 
   [[ -z "$geometry" ]] && geometry="1920x1200"
 
-  # Audio devices
   local mic_audio
   local default_sink
   local sys_audio
@@ -167,65 +112,31 @@ start_recording() {
       awk -v sink="${default_sink}.monitor" '$2 == sink {print $2; exit}'
   )"
 
-  # ─────────────────────────────────────────
-  # Create recording state BEFORE starting
-  # ─────────────────────────────────────────
-
   echo "$output" >"${REC_FLAG}.output"
 
   touch "$REC_FLAG"
 
-  # ─────────────────────────────────────────
-  # FFmpeg encode path.
-  #
-  # Prefers h264_vaapi (hardware encode on the iGPU's render node)
-  # to keep CPU usage low; falls back to libx264 only if no VAAPI
-  # device probes successfully. Either way quality is prioritized
-  # over file size (low QP/CRF).
-  # ─────────────────────────────────────────
-
-  local vaapi_dev
-  vaapi_dev="$(pick_vaapi_device)"
-
-  notify-send \
-    "Recording STARTED" \
-    "$timestamp — $([[ -n "$vaapi_dev" ]] && echo "h264_vaapi (HW)" || echo "x264 CPU")"
+  notify-send "Recording STARTED" "$timestamp — x264 CPU ${REC_FPS}fps"
 
   local -a ffargs=(
     -hide_banner
     -loglevel error
-  )
-
-  [[ -n "$vaapi_dev" ]] && ffargs+=(-vaapi_device "$vaapi_dev")
-
-  ffargs+=(
     -thread_queue_size 1024
     -f x11grab
-    -framerate 24
+    -framerate "$REC_FPS"
     -video_size "$geometry"
     -draw_mouse 1
     -i ":0.0+0,0"
   )
 
-  # filter_complex parts: video only needs one when we're going
-  # through VAAPI (nv12 + hwupload); audio only needs one when
-  # mixing two distinct sources. Either, both, or neither may apply.
-  local -a fc_parts=()
-  local video_map audio_map
+  local audio_map
   local -a audio_codec
-
-  if [[ -n "$vaapi_dev" ]]; then
-    fc_parts+=("[0:v]format=nv12,hwupload[vout]")
-    video_map="[vout]"
-  else
-    video_map="0:v:0"
-  fi
 
   if [[ -n "$sys_audio" && -n "$mic_audio" && "$sys_audio" != "$mic_audio" ]]; then
 
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
-    fc_parts+=("[1:a]volume=1.0[sys];[2:a]volume=1.0[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
+    ffargs+=(-filter_complex "[1:a]volume=1.0[sys];[2:a]volume=1.0[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
     audio_map="[aout]"
     audio_codec=(-c:a aac -b:a 384k)
 
@@ -248,48 +159,27 @@ start_recording() {
 
   fi
 
-  if ((${#fc_parts[@]})); then
-    local fc_joined="${fc_parts[0]}"
-    local i
-    for ((i = 1; i < ${#fc_parts[@]}; i++)); do
-      fc_joined+=";${fc_parts[i]}"
-    done
-    ffargs+=(-filter_complex "$fc_joined")
-  fi
-
-  ffargs+=(-map "$video_map")
+  ffargs+=(-map 0:v:0)
   [[ -n "$audio_map" ]] && ffargs+=(-map "$audio_map")
   ffargs+=("${audio_codec[@]}")
 
-  if [[ -n "$vaapi_dev" ]]; then
-    ffargs+=(
-      -c:v h264_vaapi
-      -qp "$VAAPI_QP"
-      -g 30
-    )
-  else
-    ffargs+=(
-      -c:v libx264
-      -preset "$CPU_PRESET"
-      -crf "$CPU_CRF"
-      -pix_fmt yuv420p
-      -g 30
-    )
-  fi
-
   ffargs+=(
+    -c:v libx264
+    -preset "$CPU_PRESET"
+    -crf "$CPU_CRF"
+    -pix_fmt yuv420p
+    -g $((REC_FPS * 2))
     -fps_mode cfr
     -movflags +faststart
     -y "$output"
   )
 
-  ffmpeg "${ffargs[@]}" >"${REC_FLAG}.log" 2>&1 &
+  ffmpeg "${ffargs[@]}" >/dev/null 2>&1 &
 
   local pid=$!
 
   echo "$pid" >"${REC_FLAG}.pid"
 
-  # Make sure FFmpeg actually started
   sleep 0.5
 
   if ! kill -0 "$pid" 2>/dev/null; then
@@ -303,12 +193,6 @@ start_recording() {
       "${REC_FLAG}.pid" \
       "${REC_FLAG}.output"
 
-    if [[ -s "${REC_FLAG}.log" ]]; then
-      notify-send \
-        "FFmpeg error" \
-        "$(tail -n 3 "${REC_FLAG}.log")"
-    fi
-
     return 1
   fi
 
@@ -319,15 +203,10 @@ start_recording() {
 # Post-stop compression (background)
 # ─────────────────────────────────────────────
 
-# Re-encodes a finished recording into a smaller .mp4 kept alongside
-# the original. Runs with low priority so it never steals CPU from
-# anything you do right after stopping.
 compress_background() {
   local src="$1"
   local dst="${src%.mp4}${COMPRESS_SUFFIX}.mp4"
-  local log="${src}.compress.log"
 
-  # Already compressed (e.g. this recording was stopped twice)
   [[ -e "$dst" ]] && exit 0
 
   if nice -n 10 ffmpeg -hide_banner -loglevel error -i "$src" \
@@ -336,9 +215,8 @@ compress_background() {
     -crf "$COMPRESS_CRF" \
     -c:a aac -b:a "$COMPRESS_AUDIO_BITRATE" \
     -movflags +faststart \
-    -y "$dst" >"$log" 2>&1; then
+    -y "$dst" >/dev/null 2>&1; then
 
-    rm -f "$log"
     notify-send \
       "Recording compressed" \
       "$(basename "$dst") — $(du -h "$dst" | awk '{print $1}')"
@@ -348,14 +226,11 @@ compress_background() {
     rm -f "$dst"
     notify-send \
       "Compression FAILED" \
-      "$(tail -n 3 "$log" 2>/dev/null)"
-    rm -f "$log"
+      "$(basename "$src")"
 
   fi
 }
 
-# Launches the compression detached from this script so the stop
-# command returns instantly and the process survives shell exit.
 start_compression() {
   local src="$1"
 
@@ -383,11 +258,8 @@ stop_recording() {
   output="$(cat "${REC_FLAG}.output" 2>/dev/null)"
 
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-
-    # Ask FFmpeg to finish the MP4 properly
     kill -INT "$pid"
 
-    # Give FFmpeg time to finalize
     while kill -0 "$pid" 2>/dev/null; do
       sleep 0.5
     done
@@ -404,7 +276,6 @@ stop_recording() {
       "Recording Saved" \
       "$(basename "$output") — compressing in background"
 
-    # Copy file URI to clipboard
     if command -v xclip >/dev/null 2>&1; then
       printf 'file://%s' "$output" |
         xclip -selection clipboard -t text/uri-list
@@ -417,12 +288,6 @@ stop_recording() {
     notify-send \
       "Recording Failed" \
       "No output file was created."
-
-    if [[ -s "${REC_FLAG}.log" ]]; then
-      notify-send \
-        "FFmpeg error" \
-        "$(tail -n 5 "${REC_FLAG}.log")"
-    fi
   fi
 
   date +%s >"$REC_COOLDOWN_FLAG"
