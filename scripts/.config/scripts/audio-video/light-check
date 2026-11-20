@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Light level checker using camera frame analysis
+# Captures a single frame and computes average brightness
+
+set -euo pipefail
+
+DEVICE="/dev/video0"
+THRESHOLD=50          # Brightness threshold (0-255), below = "dark"
+SAMPLE_SIZE="320x240" # Small frame for fast analysis
+NOTIFY=true           # Send notification on level change
+STATE_FILE="/tmp/light_state"  # Tracks last state to avoid spam
+
+usage() {
+  cat <<EOF
+Usage: light-check [options]
+
+Options:
+  -d, --device DEV     Video device (default: /dev/video0)
+  -t, --threshold N    Brightness threshold 0-255 (default: 50)
+  -s, --size WxH       Capture resolution (default: 320x240)
+  -n, --no-notify      Disable desktop notifications
+  -w, --watch          Continuous monitoring mode (5s interval)
+  -h, --help           Show this help
+
+Output: prints light level and state (bright/dim/dark)
+EOF
+}
+
+# Parse arguments
+WATCH_MODE=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  -d | --device) DEVICE="$2"; shift 2 ;;
+  -t | --threshold) THRESHOLD="$2"; shift 2 ;;
+  -s | --size) SAMPLE_SIZE="$2"; shift 2 ;;
+  -n | --no-notify) NOTIFY=false; shift ;;
+  -w | --watch) WATCH_MODE=true; shift ;;
+  -h | --help) usage; exit 0 ;;
+  *) echo "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+# Check device exists
+if [[ ! -e "$DEVICE" ]]; then
+  echo "Error: Device $DEVICE not found"
+  exit 1
+fi
+
+# Load last state
+LAST_STATE=""
+[[ -f "$STATE_FILE" ]] && LAST_STATE=$(cat "$STATE_FILE")
+
+analyze_frame() {
+  local frame_file mean attempt
+  frame_file=$(mktemp --suffix=.jpg)
+
+  # Capture single frame, downscale, convert to grayscale (retry once on failure)
+  for attempt in 1 2; do
+    if ffmpeg -y -loglevel error \
+      -fflags nobuffer -flags low_delay \
+      -f v4l2 -input_format mjpeg -video_size "$SAMPLE_SIZE" \
+      -i "$DEVICE" \
+      -vframes 1 -vf "format=gray,scale=320:240" \
+      -q:v 2 "$frame_file" 2>/dev/null; then
+      break
+    fi
+    sleep 0.3
+  done
+
+  if [[ ! -s "$frame_file" ]]; then
+    rm -f "$frame_file"
+    echo "Error: Failed to capture frame" >&2
+    return 1
+  fi
+
+  # Use ImageMagick to get mean brightness (0-255)
+  mean=$(identify -format '%[fx:mean]' "$frame_file" 2>/dev/null | awk '{print int($1 * 255)}')
+  rm -f "$frame_file"
+
+  if [[ -z "$mean" || ! "$mean" =~ ^[0-9]+$ ]]; then
+    echo "Error: Failed to analyze frame" >&2
+    return 1
+  fi
+
+  echo "$mean"
+}
+
+classify_light() {
+  local level=$1
+  if ((level < THRESHOLD / 3)); then
+    echo "dark"
+  elif ((level < THRESHOLD)); then
+    echo "dim"
+  else
+    echo "bright"
+  fi
+}
+
+notify_change() {
+  local state=$1 level=$2
+  local icon msg
+
+  case "$state" in
+  bright) icon="weather-clear" msg="Bright ($level)" ;;
+  dim) icon="weather-overcast" msg="Dim ($level)" ;;
+  dark) icon="weather-night" msg="Dark ($level)" ;;
+  esac
+
+  if command -v dunstify >/dev/null; then
+    dunstify -u low -r 2595 "Light Level" "$msg" -i "$icon"
+  elif command -v notify-send >/dev/null; then
+    notify-send -u low "Light Level" "$msg" -i "$icon"
+  fi
+}
+
+check_once() {
+  local level state
+  level=$(analyze_frame) || return 1
+  state=$(classify_light "$level")
+
+  printf "Light level: %3d (%s)\n" "$level" "$state"
+
+  if $NOTIFY && [[ "$state" != "$LAST_STATE" ]]; then
+    notify_change "$state" "$level"
+    echo "$state" >"$STATE_FILE"
+  fi
+}
+
+if $WATCH_MODE; then
+  echo "Monitoring light level every 5 seconds (Ctrl+C to stop)..."
+  while true; do
+    check_once
+    sleep 5
+  done
+else
+  check_once
+fi

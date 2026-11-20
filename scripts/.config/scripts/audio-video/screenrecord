@@ -136,7 +136,7 @@ start_recording() {
 
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$sys_audio")
     ffargs+=(-thread_queue_size 1024 -f pulse -i "$mic_audio")
-    ffargs+=(-filter_complex "[1:a]volume=1.0[sys];[2:a]volume=1.0[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
+    ffargs+=(-filter_complex "[1:a]volume=1.0[sys];[2:a]volume=5.0[mic];[sys][mic]amix=inputs=2:duration=longest:dropout_transition=0[aout]")
     audio_map="[aout]"
     audio_codec=(-c:a aac -b:a 384k)
 
